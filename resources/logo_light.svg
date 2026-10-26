@@ -1,0 +1,94 @@
+<svg id="logo" viewBox="0 0 1900 460" aria-label="Automation Studio">
+      <defs>
+        <!-- Unified three-tone amber palette shared by A, S and both I liquids. -->
+        <linearGradient id="amber" x1="0" y1="0" x2="0.92" y2="1">
+          <stop offset="0" stop-color="#FFD24A"/>
+          <stop offset="0.52" stop-color="#F5A51B"/>
+          <stop offset="1" stop-color="#D88908"/>
+        </linearGradient>
+        <linearGradient id="amberLiquid" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#FFD24A"/>
+          <stop offset="0.52" stop-color="#F5A51B"/>
+          <stop offset="1" stop-color="#D88908"/>
+        </linearGradient>
+        <linearGradient id="liquidSoft" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#FFD24A"/>
+          <stop offset="0.5" stop-color="#F5A51B"/>
+          <stop offset="1" stop-color="#D88908"/>
+        </linearGradient>
+        <linearGradient id="shine" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.68"/>
+          <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.22"/>
+          <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+        </linearGradient>
+        <clipPath id="clipA"><path d="M16 0H252L388 387H989L1121 0H1362L825 1490H557ZM455 576 548 840C589 963 632 1094 692 1287C751 1094 793 963 834 840L924 576Z" transform="translate(261.26,310.00) scale(0.0761719,-0.0761719)"/></clipPath>
+        <clipPath id="clipS"><path d="M652 -24C990 -24 1209 152 1209 420C1209 633 1071 762 772 833L611 871C406 920 326 982 326 1090C326 1225 453 1320 633 1320C821 1320 943 1215 954 1044H1169C1160 1335 957 1514 636 1514C316 1514 105 1341 105 1079C105 873 237 748 538 677L701 638C908 589 987 523 987 408C987 263 854 170 652 170C429 170 298 286 297 483H75C75 168 295 -24 652 -24Z" transform="translate(1154.57,310.00) scale(0.0761719,-0.0761719)"/></clipPath>
+      </defs>
+
+      <!-- A: exact continuous silhouette from the preferred logo; only its position animates -->
+      <g id="A" transform="translate(0 0)">
+        <path d="M16 0H252L388 387H989L1121 0H1362L825 1490H557ZM455 576 548 840C589 963 632 1094 692 1287C751 1094 793 963 834 840L924 576Z" transform="translate(261.26,310.00) scale(0.0761719,-0.0761719)" fill="url(#amber)" stroke="#8A4E03" stroke-width="4.5" stroke-linejoin="round" paint-order="stroke fill"/>
+        <path d="M 285.26,292.00 Q 300.26,247.00 318.26,206.00" fill="none" stroke="url(#shine)" stroke-width="10" stroke-linecap="round" opacity="0.38" clip-path="url(#clipA)"/>
+        <path d="M 285.26,292.00 Q 300.26,247.00 318.26,206.00" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" opacity="0.24" clip-path="url(#clipA)"/>
+      </g>
+
+      <!-- Automation: fixed geometry, staggered reverse reveal N -> U -->
+      <g id="automation">
+        <path data-letter="u" class="ink reveal" fill="#1f242a" opacity="1" d="M501 -21C641 -21 748 39 820 159V0H1027V1056H816V448C816 252 705 168 562 168C415 168 330 255 330 424V1056H119V398C119 122 284 -21 501 -21Z" transform="translate(366.30,310.00) scale(0.0761719,-0.0761719)"/>
+        <path data-letter="t1" class="ink reveal" fill="#1f242a" opacity="1" d="M628 1056H414V1344H202V1056H16V882H202V252C202 82 297 0 495 0H628V174H525C441 174 414 201 414 279V882H628Z" transform="translate(453.60,310.00) scale(0.0761719,-0.0761719)"/>
+        <path data-letter="o1" class="ink reveal" fill="#1f242a" opacity="1" d="M573 -24C875 -24 1078 201 1078 526C1078 853 875 1080 573 1080C271 1080 67 853 67 526C67 201 271 -24 573 -24ZM573 158C392 158 281 301 281 526C281 753 393 898 573 898C753 898 865 753 865 526C865 302 754 158 573 158Z" transform="translate(505.09,310.00) scale(0.0761719,-0.0761719)"/>
+        <path data-letter="m" class="ink reveal" fill="#1f242a" opacity="1" d="M119 0H330V637C330 804 440 892 563 892C683 892 770 812 770 691V0H978V660C978 795 1065 892 1206 892C1320 892 1418 828 1418 677V0H1630V695C1630 949 1474 1077 1278 1077C1122 1077 1000 996 943 882C899 995 783 1077 639 1077C508 1077 389 1009 324 879V1056H119Z" transform="translate(592.38,310.00) scale(0.0761719,-0.0761719)"/>
+        <path data-letter="a" class="ink reveal" fill="#1f242a" opacity="1" d="M441 -17C623 -17 709 65 753 150H757V0H965V724C965 939 806 1077 546 1077C282 1077 111 935 101 734H308C316 831 408 904 543 904C677 904 756 830 756 728V719C756 642 690 644 492 620C277 595 75 543 75 302C75 91 231 -17 441 -17ZM484 153C361 153 285 207 285 298C285 405 389 446 504 463C616 479 728 496 757 519V395C757 265 670 153 484 153Z" transform="translate(725.60,310.00) scale(0.0761719,-0.0761719)"/>
+        <path data-letter="t2" class="ink reveal" fill="#1f242a" opacity="1" d="M628 1056H414V1344H202V1056H16V882H202V252C202 82 297 0 495 0H628V174H525C441 174 414 201 414 279V882H628Z" transform="translate(808.18,310.00) scale(0.0761719,-0.0761719)"/>
+        <path data-letter="o2" class="ink reveal" fill="#1f242a" opacity="1" d="M573 -24C875 -24 1078 201 1078 526C1078 853 875 1080 573 1080C271 1080 67 853 67 526C67 201 271 -24 573 -24ZM573 158C392 158 281 301 281 526C281 753 393 898 573 898C753 898 865 753 865 526C865 302 754 158 573 158Z" transform="translate(930.07,310.00) scale(0.0761719,-0.0761719)"/>
+        <path data-letter="n" class="ink reveal" fill="#1f242a" opacity="1" d="M330 608C330 804 441 888 585 888C731 888 816 801 816 632V0H1027V658C1027 934 862 1077 645 1077C506 1077 398 1017 326 897V1056H119V0H330Z" transform="translate(1017.36,310.00) scale(0.0761719,-0.0761719)"/>
+
+        <!-- I body, dot and liquid are separate editable elements -->
+        <g id="I-auto" opacity="1" aria-label="I líquido Automation">
+          <rect id="I-auto-shell" x="872.93" y="207.04" width="39.78" height="102.96" rx="19.89" fill="#FFFFFF" stroke="url(#amber)" stroke-width="5"/>
+          <clipPath id="clipIA"><rect x="872.93" y="207.04" width="39.78" height="102.96" rx="19.89"/></clipPath>
+          <g clip-path="url(#clipIA)" id="I-auto-liquid">
+            <rect id="I-auto-l1" x="874" y="301" width="38" height="10" rx="5" fill="#D88908"/>
+            <rect id="I-auto-l2" x="874" y="301" width="38" height="10" rx="5" fill="#F5A51B"/>
+            <rect id="I-auto-l3" x="874" y="301" width="38" height="10" rx="5" fill="url(#liquidSoft)"/>
+          </g>
+          <path d="M882.47,217.34 Q877.70,246.16 882.87,258.52" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" opacity="0.24" clip-path="url(#clipIA)"/>
+          <g id="I-auto-dot-group" opacity="0">
+            <path id="I-auto-drop" d="M892.82 151 C900 160 902 165 902 172 A10 10 0 1 1 882 172 C882 165 885 159 892.82 151Z" fill="url(#amberLiquid)" stroke="#8A4E03" stroke-width="2.5"/>
+            <circle id="I-auto-dot" cx="892.82" cy="171.16" r="19.58" fill="#FFFFFF" stroke="url(#amber)" stroke-width="4"/>
+            <circle id="I-auto-dot-fill" cx="892.82" cy="171.16" r="16.38" fill="url(#amberLiquid)"/>
+            <ellipse id="I-auto-dot-glint" cx="888.23" cy="166.57" rx="4.91" ry="3.60" fill="#FFFFFF" opacity="0"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- S: exact continuous silhouette; position never changes -->
+      <g id="S">
+        <path d="M652 -24C990 -24 1209 152 1209 420C1209 633 1071 762 772 833L611 871C406 920 326 982 326 1090C326 1225 453 1320 633 1320C821 1320 943 1215 954 1044H1169C1160 1335 957 1514 636 1514C316 1514 105 1341 105 1079C105 873 237 748 538 677L701 638C908 589 987 523 987 408C987 263 854 170 652 170C429 170 298 286 297 483H75C75 168 295 -24 652 -24Z" transform="translate(1154.57,310.00) scale(0.0761719,-0.0761719)" fill="url(#amber)" stroke="#8A4E03" stroke-width="4.5" stroke-linejoin="round" paint-order="stroke fill"/>
+        <path d="M 1184.57,206.00 Q 1222.57,194.00 1232.57,226.00" fill="none" stroke="url(#shine)" stroke-width="10" stroke-linecap="round" opacity="0.32" clip-path="url(#clipS)"/>
+      </g>
+
+      <!-- Studio: same timing cadence as Automation -->
+      <g id="studio">
+        <path data-letter="t" class="ink reveal" fill="#1f242a" opacity="1" d="M628 1056H414V1344H202V1056H16V882H202V252C202 82 297 0 495 0H628V174H525C441 174 414 201 414 279V882H628Z" transform="translate(1252.38,310.00) scale(0.0761719,-0.0761719)"/>
+        <path data-letter="u" class="ink reveal" fill="#1f242a" opacity="1" d="M501 -21C641 -21 748 39 820 159V0H1027V1056H816V448C816 252 705 168 562 168C415 168 330 255 330 424V1056H119V398C119 122 284 -21 501 -21Z" transform="translate(1303.87,310.00) scale(0.0761719,-0.0761719)"/>
+        <path data-letter="d" class="ink reveal" fill="#1f242a" opacity="1" d="M525 -21C663 -21 781 38 852 161H854V0H1061V1490H850V903H848C780 1020 661 1077 524 1077C251 1077 67 854 67 528C67 201 250 -21 525 -21ZM568 161C398 161 281 290 281 528C281 767 398 896 568 896C748 896 864 750 864 528C864 306 748 161 568 161Z" transform="translate(1391.16,310.00) scale(0.0761719,-0.0761719)"/>
+        <g id="I-studio" opacity="1" aria-label="I líquido Studio">
+          <rect id="I-studio-shell" x="1494.31" y="207.04" width="39.78" height="102.96" rx="19.89" fill="#FFFFFF" stroke="url(#amber)" stroke-width="5"/>
+          <clipPath id="clipIS"><rect x="1494.31" y="207.04" width="39.78" height="102.96" rx="19.89"/></clipPath>
+          <g clip-path="url(#clipIS)" id="I-studio-liquid">
+            <rect id="I-studio-l1" x="1495" y="301" width="38" height="10" rx="5" fill="#D88908"/>
+            <rect id="I-studio-l2" x="1495" y="301" width="38" height="10" rx="5" fill="#F5A51B"/>
+            <rect id="I-studio-l3" x="1495" y="301" width="38" height="10" rx="5" fill="url(#liquidSoft)"/>
+          </g>
+          <path d="M1503.85,217.34 Q1499.08,246.16 1504.25,258.52" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" opacity="0.24" clip-path="url(#clipIS)"/>
+          <g id="I-studio-dot-group" opacity="0">
+            <path id="I-studio-drop" d="M1514.2 151 C1521.4 160 1523.4 165 1523.4 172 A10 10 0 1 1 1503.4 172 C1503.4 165 1506.2 159 1514.2 151Z" fill="url(#amberLiquid)" stroke="#8A4E03" stroke-width="2.5"/>
+            <circle id="I-studio-dot" cx="1514.20" cy="171.16" r="19.58" fill="#FFFFFF" stroke="url(#amber)" stroke-width="4"/>
+            <circle id="I-studio-dot-fill" cx="1514.20" cy="171.16" r="16.38" fill="url(#amberLiquid)"/>
+            <ellipse id="I-studio-dot-glint" cx="1509.61" cy="166.57" rx="4.91" ry="3.60" fill="#FFFFFF" opacity="0"/>
+          </g>
+        </g>
+        <path data-letter="o" class="ink reveal" fill="#1f242a" opacity="1" d="M573 -24C875 -24 1078 201 1078 526C1078 853 875 1080 573 1080C271 1080 67 853 67 526C67 201 271 -24 573 -24ZM573 158C392 158 281 301 281 526C281 753 393 898 573 898C753 898 865 753 865 526C865 302 754 158 573 158Z" transform="translate(1551.45,310.00) scale(0.0761719,-0.0761719)"/>
+      </g>
+    </svg>

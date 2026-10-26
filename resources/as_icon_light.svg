@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="230 150 250 190"><defs>
+        <!-- Unified three-tone amber palette shared by A, S and both I liquids. -->
+        <linearGradient id="amber" x1="0" y1="0" x2="0.92" y2="1">
+          <stop offset="0" stop-color="#FFD24A"/>
+          <stop offset="0.52" stop-color="#F5A51B"/>
+          <stop offset="1" stop-color="#D88908"/>
+        </linearGradient>
+        <linearGradient id="amberLiquid" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#FFD24A"/>
+          <stop offset="0.52" stop-color="#F5A51B"/>
+          <stop offset="1" stop-color="#D88908"/>
+        </linearGradient>
+        <linearGradient id="liquidSoft" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#FFD24A"/>
+          <stop offset="0.5" stop-color="#F5A51B"/>
+          <stop offset="1" stop-color="#D88908"/>
+        </linearGradient>
+        <linearGradient id="shine" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.68"/>
+          <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.22"/>
+          <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+        </linearGradient>
+        <clipPath id="clipA"><path d="M16 0H252L388 387H989L1121 0H1362L825 1490H557ZM455 576 548 840C589 963 632 1094 692 1287C751 1094 793 963 834 840L924 576Z" transform="translate(261.26,310.00) scale(0.0761719,-0.0761719)"/></clipPath>
+        <clipPath id="clipS"><path d="M652 -24C990 -24 1209 152 1209 420C1209 633 1071 762 772 833L611 871C406 920 326 982 326 1090C326 1225 453 1320 633 1320C821 1320 943 1215 954 1044H1169C1160 1335 957 1514 636 1514C316 1514 105 1341 105 1079C105 873 237 748 538 677L701 638C908 589 987 523 987 408C987 263 854 170 652 170C429 170 298 286 297 483H75C75 168 295 -24 652 -24Z" transform="translate(1154.57,310.00) scale(0.0761719,-0.0761719)"/></clipPath>
+      </defs><g id="A" transform="translate(0 0)">
+        <path d="M16 0H252L388 387H989L1121 0H1362L825 1490H557ZM455 576 548 840C589 963 632 1094 692 1287C751 1094 793 963 834 840L924 576Z" transform="translate(261.26,310.00) scale(0.0761719,-0.0761719)" fill="url(#amber)" stroke="#8A4E03" stroke-width="4.5" stroke-linejoin="round" paint-order="stroke fill"/>
+        <path d="M 285.26,292.00 Q 300.26,247.00 318.26,206.00" fill="none" stroke="url(#shine)" stroke-width="10" stroke-linecap="round" opacity="0.38" clip-path="url(#clipA)"/>
+        <path d="M 285.26,292.00 Q 300.26,247.00 318.26,206.00" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" opacity="0.24" clip-path="url(#clipA)"/>
+      </g><g id="S" transform="translate(-800 0)">
+        <path d="M652 -24C990 -24 1209 152 1209 420C1209 633 1071 762 772 833L611 871C406 920 326 982 326 1090C326 1225 453 1320 633 1320C821 1320 943 1215 954 1044H1169C1160 1335 957 1514 636 1514C316 1514 105 1341 105 1079C105 873 237 748 538 677L701 638C908 589 987 523 987 408C987 263 854 170 652 170C429 170 298 286 297 483H75C75 168 295 -24 652 -24Z" transform="translate(1154.57,310.00) scale(0.0761719,-0.0761719)" fill="url(#amber)" stroke="#8A4E03" stroke-width="4.5" stroke-linejoin="round" paint-order="stroke fill"/>
+        <path d="M 1184.57,206.00 Q 1222.57,194.00 1232.57,226.00" fill="none" stroke="url(#shine)" stroke-width="10" stroke-linecap="round" opacity="0.32" clip-path="url(#clipS)"/>
+      </g></svg>

@@ -1,0 +1,5 @@
+# Dependências para rodar os testes (Rodar_Testes.bat instalar). O programa em si só precisa de requirements.txt.
+-r requirements.txt
+pytest>=8
+pytest-timeout>=2.3
+coverage>=7.6

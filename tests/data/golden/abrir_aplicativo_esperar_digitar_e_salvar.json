@@ -1,0 +1,11 @@
+{
+ "resumo": {"total": 31, "ultimo_instante": 3.9, "por_acao": {"key_down": 2, "key_up": 2, "type_text": 27}},
+ "aplicativos_abertos": ["notepad.exe"],
+ "eventos": [
+  [1.8, "type_text", "Olá, mundo! Ação concluída."],
+  [3.5, "key_down", "CTRL"],
+  [3.6, "key_down", "S"],
+  [3.7, "key_up", "S"],
+  [3.9, "key_up", "CTRL"]
+ ]
+}

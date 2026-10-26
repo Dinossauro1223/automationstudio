@@ -1,0 +1,11 @@
+{
+ "resumo": {"total": 186, "ultimo_instante": 0.1, "por_acao": {"type_text": 186}},
+ "aplicativos_abertos": ["notepad.exe"],
+ "eventos": [
+  [
+   0.1,
+   "type_text",
+   "Já pensou nas possibilidades? Esse programa pode te ajudar a deixar seu fluxo de trabalho mais confortável, te dando mais tempo para o que realmente importa. A sua criatividade, em ação!"
+  ]
+ ]
+}

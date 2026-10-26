@@ -1,0 +1,30 @@
+{
+ "resumo": {
+  "total": 20,
+  "ultimo_instante": 0.957,
+  "por_acao": {"key_down": 5, "key_up": 5, "mouse_down": 5, "mouse_up": 5}
+ },
+ "aplicativos_abertos": [],
+ "eventos": [
+  [0.0, "key_down", "F"],
+  [0.084, "key_up", "F"],
+  [0.093, "mouse_down", "left"],
+  [0.221, "mouse_up", "left"],
+  [0.233, "key_down", "F"],
+  [0.32, "key_up", "F"],
+  [0.328, "mouse_down", "left"],
+  [0.44, "mouse_up", "left"],
+  [0.458, "key_down", "F"],
+  [0.543, "key_up", "F"],
+  [0.553, "mouse_down", "left"],
+  [0.656, "mouse_up", "left"],
+  [0.672, "key_down", "F"],
+  [0.755, "key_up", "F"],
+  [0.768, "mouse_down", "left"],
+  [0.864, "mouse_up", "left"],
+  [0.864, "key_down", "F"],
+  [0.948, "key_up", "F"],
+  [0.957, "mouse_down", "left"],
+  [0.957, "mouse_up", "left"]
+ ]
+}

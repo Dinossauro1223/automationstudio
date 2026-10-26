@@ -1,0 +1,3 @@
+Stub de PySide6 usado apenas quando a variável AS_TEST_QT_STUB=1 está definida.
+Serve para rodar a lógica (modelo, motor, gravador, persistência) num ambiente sem PySide6.
+Nunca é usado por padrão: sem a variável, o PySide6 real é exigido.
