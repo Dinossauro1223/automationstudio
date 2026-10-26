@@ -955,7 +955,7 @@ class ScrollableTabWidget(QWidget):
     def addTab(self, widget, label):
         index=self._stack.addWidget(widget)
         b=QPushButton(label); b.setCheckable(True); b.setAutoExclusive(True); b.setMinimumHeight(32); b.setSizePolicy(QSizePolicy.Fixed,QSizePolicy.Fixed)
-        b.setStyleSheet("QPushButton { padding: 6px 14px; border: 0; border-bottom: 2px solid transparent; } QPushButton:checked { border-bottom: 2px solid #FFC53D; font-weight: 600; }")
+        b.setStyleSheet("QPushButton { padding: 6px 14px; background: transparent; border: 0; border-radius: 0; border-bottom: 2px solid transparent; } QPushButton:checked { border-bottom: 2px solid palette(highlight); font-weight: 600; }")
         b.clicked.connect(lambda checked=False, i=index: self.setCurrentIndex(i))
         self._bar_layout.addWidget(b); self._bar_layout.invalidate(); self._bar.adjustSize()
         if index == 0: self.setCurrentIndex(0)

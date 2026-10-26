@@ -449,6 +449,11 @@ class MainWindow(QMainWindow):
         self.btn_stop=toolbar.addAction('■ Parar'); self.btn_stop.triggered.connect(lambda:self.engine.stop()); self.btn_stop.setEnabled(False)
         self.btn_preview_record=toolbar.addAction('▶ Pré-visualizar gravação'); self.btn_preview_record.triggered.connect(self._preview_recording); self.btn_preview_record.setEnabled(False)
         toolbar.addSeparator(); emergency=toolbar.addAction('🛑 Parar tudo'); emergency.triggered.connect(self._on_emergency)
+        # Hierarquia visual da barra (só aparência): Executar em destaque e Parar tudo em vermelho.
+        for _action, _prop in ((self.btn_run, 'primary'), (emergency, 'danger')):
+            _tool_button = toolbar.widgetForAction(_action)
+            if _tool_button is not None:
+                _tool_button.setProperty(_prop, True)
         toolbar.addSeparator()
         self.act_undo=toolbar.addAction('↶ Desfazer'); self.act_undo.setShortcut(QKeySequence('Ctrl+Z')); self.act_undo.triggered.connect(self._undo_map)
         self.act_redo=toolbar.addAction('↷ Refazer'); self.act_redo.setShortcut(QKeySequence('Ctrl+Y')); self.act_redo.triggered.connect(self._redo_map)
@@ -530,6 +535,7 @@ class MainWindow(QMainWindow):
         self.map_list=QListWidget(); self.map_list.setMinimumHeight(260); self.map_list.currentItemChanged.connect(self._on_map_selected); cl.addWidget(self.map_list)
         self.map_list_info=QLabel(''); self.map_list_info.setStyleSheet('color:#8f96a3;font-size:12px;'); cl.addWidget(self.map_list_info)
         self.btn_create_map=QPushButton('＋ CRIAR NOVA AUTOMAÇÃO'); self.btn_create_map.setMinimumHeight(48); self.btn_create_map.clicked.connect(self._new_map); cl.addWidget(self.btn_create_map)
+        self.btn_create_map.setProperty('primary', True)  # só aparência: destaque do tema
         self.btn_import_external=QPushButton('📂 ABRIR / IMPORTAR MAPA EXTERNO'); self.btn_import_external.setMinimumHeight(42); self.btn_import_external.setToolTip('Selecione um mapa .json ou um banco AutomationStudio.db/.sqlite de outra instalação, incluindo mapas da V19.'); self.btn_import_external.clicked.connect(self._import_external_from_chooser); cl.addWidget(self.btn_import_external)
         self.btn_open_editor=QPushButton('ABRIR AUTOMAÇÃO SELECIONADA'); self.btn_open_editor.setMinimumHeight(42); self.btn_open_editor.clicked.connect(lambda:self.pages.setCurrentIndex(2) if self._current_map else None); cl.addWidget(self.btn_open_editor)
         # Página 2: editor.
@@ -548,7 +554,7 @@ class MainWindow(QMainWindow):
         self.command_sidebar_close.setFixedSize(24,24)
         self.command_sidebar_close.setCursor(Qt.PointingHandCursor)
         self.command_sidebar_close.setToolTip('Fechar painel lateral (Esc)')
-        self.command_sidebar_close.setStyleSheet('QPushButton { border: 0; background: transparent; color: #111111; font-size: 22px; font-weight: 400; padding: 0; } QPushButton:hover { color: #D62828; font-weight: 900; }')
+        self.command_sidebar_close.setStyleSheet('QPushButton { border: 0; background: transparent; color: palette(text); font-size: 22px; font-weight: 400; padding: 0; } QPushButton:hover { color: #D62828; font-weight: 900; }')
         self.command_sidebar_close.clicked.connect(self._close_command_sidebar)
         title_row=QHBoxLayout(); title_row.setContentsMargins(0,0,0,0); title_row.setSpacing(2); title_row.addWidget(self.command_sidebar_title); title_row.addStretch(); title_row.addWidget(self.command_sidebar_close)
         self.command_sidebar_layout.addLayout(title_row)
@@ -568,7 +574,7 @@ class MainWindow(QMainWindow):
         # sempre o mínimo necessário para o quadro de comandos.
         workspace.setStretchFactor(0,0); workspace.setStretchFactor(1,1); workspace.setMinimumWidth(1)
         workspace.setHandleWidth(7)
-        workspace.setStyleSheet("QSplitter::handle { background: palette(mid); margin: 2px 0; } QSplitter::handle:hover { background: #FFC53D; }")
+        workspace.setStyleSheet("QSplitter::handle { background: palette(mid); margin: 2px 0; } QSplitter::handle:hover { background: palette(highlight); }")
         self.workspace_splitter=workspace
         self._last_sidebar_width = max(180, int(self._last_sidebar_width))
         self._sidebar_layout_guard = False
