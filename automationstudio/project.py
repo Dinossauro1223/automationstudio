@@ -208,6 +208,17 @@ class AppSettings:
     def set_control_hotkeys(self, hotkeys: dict[str, str]) -> None:
         self._data['control_hotkeys'] = {k:v for k,v in hotkeys.items() if v}; self.save()
 
+    def get_map_activation(self) -> dict[str, Any]:
+        """Ativação por mapa (25.8): {"migrated": bool, "prefs": {nome do mapa: "sempre" | "desativado"}}.
+
+        Vazio quando nada foi gravado ou quando o valor gravado não é um dicionário (o leitor de `AtivacaoMapas` cuida do
+        resto). Devolve uma cópia: quem altera o resultado não altera a configuração. O formato dos mapas não muda."""
+        saved = self._data.get('map_activation', {})
+        return copy.deepcopy(saved) if isinstance(saved, dict) else {}
+
+    def set_map_activation(self, values: dict[str, Any]) -> None:
+        self._data['map_activation'] = copy.deepcopy(values); self.save()
+
     def get_visual_settings(self) -> dict[str, Any]:
         defaults = {'keyboard_mode':'compact','keyboard_timeout':3.0,'mouse_timeout':3.0,'keyboard_opacity':1.0,'mouse_opacity':1.0,'show_on_minimize':True,'show_keyboard':False,'show_mouse':False,'always_on_top':True,'click_virtual_keyboard':True,'keyboard_geometry':None,'mouse_geometry':None,'theme_mode':'system','accent_dark':'#FFC53D','accent_light':'#2F6FED','light_surface':'#FFFFFF','light_contrast':'#2F343B','virtual_surface_dark':'#4A4F57','virtual_surface_light':'#5A6068','virtual_text_dark':'#FFC53D','virtual_text_light':'#FFC53D','virtual_accent':'#FFC53D','onboarding_seen':False,'main_window_geometry':None,'main_window_state':None,'sidebar_width':360,'workspace_splitter_sizes':None}
         defaults['undo_ram_mb'] = 256

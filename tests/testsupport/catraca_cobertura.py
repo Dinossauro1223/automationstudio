@@ -38,7 +38,8 @@ GRUPOS = {
     "project": ("project",),
     "input_system": ("input_system",),
     "vision": ("vision",),
-    "interface": ("app", "command_editor", "main_window", "overlays", "timeline", "tutorial"),
+    "ativacao": ("ativacao",),  # 25.8: a lógica pura da ativação por mapa; a parte com widgets (ativacao_ui) é da interface
+    "interface": ("app", "ativacao_ui", "command_editor", "main_window", "overlays", "timeline", "tutorial"),
 }
 IGNORADOS = frozenset({"__init__"})
 

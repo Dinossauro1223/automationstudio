@@ -20,7 +20,7 @@ Como funciona e por que dá para confiar:
   * o defeito precisa compilar e o pacote precisa importar; senão ele é "inválido" e não conta como morto;
   * "morto" significa: algum teste que PASSAVA na cópia sem defeito passou a FALHAR (compara-se com uma rodada de referência);
   * nunca envia entrada de verdade: AS_ALLOW_REAL_INPUT e AS_ATUALIZAR_GOLDEN são removidos do ambiente das rodadas;
-  * a rodada inteira leva cerca de 45 minutos e cada resultado é gravado assim que sai (logs/mutacoes_progresso.jsonl). Se
+  * a rodada inteira leva cerca de 55 minutos e cada resultado é gravado assim que sai (logs/mutacoes_progresso.jsonl). Se
     ela for interrompida (Ctrl+C, queda de energia, o computador dormiu), `--retomar` continua dali. O progresso só vale
     para o MESMO projeto: ele guarda uma impressão digital de tudo o que as cópias enxergam, e se o código ou os testes
     mudaram desde então a retomada é recusada (misturar resultados de suítes diferentes enganaria).
@@ -442,6 +442,9 @@ IS = "automationstudio/input_system.py"
 CORE = "automationstudio/core.py"
 PRJ = "automationstudio/project.py"
 EDI = "automationstudio/command_editor.py"
+ATV = "automationstudio/ativacao.py"
+ATU = "automationstudio/ativacao_ui.py"
+JAN = "automationstudio/main_window.py"
 GOLD = "tests/data/golden/"
 
 
@@ -609,6 +612,227 @@ def catalogo() -> list[Mutante]:
            IS, "            self.monitor.on_key.remove(self._key_cb)", "            pass"))
     add(_m("ATL11", "atalhos", "atalho vazio é aceito", "atalho vazio é erro",
            CORE, L("    if not parts:", '        raise ValueError("Atalho vazio.")'), L("    if False:", '        raise ValueError("Atalho vazio.")')))
+
+    # ---------------------------------------------------------------------------------------------- ativação por mapa (25.8)
+    # A lógica (ativacao.py) e o controlador (ativacao_ui.py) rodam no modo LÓGICA; a faixa e a lista, que são widgets, no dublê.
+    # As ligações com a janela principal (main_window.py) não têm teste de comportamento fora do Qt de verdade: quem as protege
+    # aqui é tests/static/test_ligacao_ativacao.py.
+    add(_m("ATV01", "ativacao", "os atalhos de controle deixam de ter prioridade: um mapa pode engolir a parada de emergência",
+           "ATV-01: os atalhos de controle entram no plano antes dos mapas", ATV,
+           L("    for chave in ORDEM_CONTROLE:",
+             "        _ocupar(plano, controles.get(chave), ROTULOS_CONTROLE[chave], ACAO_DO_CONTROLE[chave], False)",
+             "    for nome in sorted(mapas, key=ordem_dos_nomes):",
+             "        if estados.get(nome) in (ESTADO_SESSAO, ESTADO_SEMPRE):",
+             '            _ocupar(plano, mapas[nome], nome, f"map:{nome}", True)'),
+           L("    for nome in sorted(mapas, key=ordem_dos_nomes):",
+             "        if estados.get(nome) in (ESTADO_SESSAO, ESTADO_SEMPRE):",
+             '            _ocupar(plano, mapas[nome], nome, f"map:{nome}", True)',
+             "    for chave in ORDEM_CONTROLE:",
+             "        _ocupar(plano, controles.get(chave), ROTULOS_CONTROLE[chave], ACAO_DO_CONTROLE[chave], False)")))
+    add(_m("ATV02", "ativacao", "a parada de emergência deixa de vir primeiro entre os atalhos de controle",
+           "a ordem de prioridade dos atalhos de controle", ATV,
+           'ORDEM_CONTROLE = ("emergency", "pause", "resume", "record_toggle", "record_cancel")',
+           'ORDEM_CONTROLE = ("pause", "resume", "record_toggle", "record_cancel", "emergency")'))
+    add(_m("ATV03", "ativacao", "um mapa desativado ocupa a tecla e causa conflito", "só mapas ativos ocupam teclas", ATV,
+           "        if estados.get(nome) in (ESTADO_SESSAO, ESTADO_SEMPRE):", "        if True:"))
+    add(_m("ATV04", "ativacao", "a ordem dos mapas vira a alfabética comum (maiúsculas antes das minúsculas)",
+           "a ordem dos nomes é a do banco (COLLATE NOCASE): decide quem fica com a tecla repetida de dados antigos", ATV,
+           "    return nome.translate(_MINUSCULAS_ASCII), nome", "    return nome, nome"))
+    add(_m("ATV05", "ativacao", "a ordem dos mapas passa a igualar também as letras acentuadas (o SQLite só iguala A-Z)",
+           "a ordem dos nomes é a do banco, não a do Python", ATV,
+           "    return nome.translate(_MINUSCULAS_ASCII), nome", "    return nome.casefold(), nome"))
+    add(_m("ATV06", "ativacao", "quem chega depois rouba a tecla de quem já a usa (se o nome dele vem antes na ordem)",
+           "HK-01: quem já usa a tecla nunca a perde para quem chega depois", ATV,
+           L("        outros = {n: t for n, t in mapas.items() if n != nome}",
+             "        dono = montar_plano(outros, self.estados(outros), controles).dono(tecla)"),
+           L("        todos = dict(mapas)",
+             "        todos[nome] = tecla",
+             "        dono = montar_plano(todos, {**self.estados(todos), nome: ESTADO_SESSAO}, controles).dono(tecla)",
+             "        if dono is not None and dono.nome == nome:",
+             "            dono = None")))
+    add(_m("ATV07", "ativacao", "a migração da primeira abertura deixa os mapas existentes desativados",
+           "MAP-04: os mapas que já existiam continuam respondendo à tecla", ATV,
+           "                self._prefs.setdefault(nome, ESTADO_SEMPRE)", "                self._prefs.setdefault(nome, ESTADO_DESATIVADO)"))
+    add(_m("ATV08", "ativacao", "a migração nunca é dada como feita: todo mapa novo seria tratado como antigo",
+           "MAP-02: o mapa criado depois da migração nasce só nesta sessão", ATV,
+           "            self._migrado = True", "            self._migrado = False"))
+    add(_m("ATV09", "ativacao", "o mapa novo é gravado como 'sempre ativo' em vez de desativado",
+           "MAP-02: o mapa novo só vale na sessão (o que se grava é desativado)", ATV,
+           L("            self._prefs[nome] = ESTADO_DESATIVADO",
+             "            conflito = self.verificar_tecla(nome, mapas[nome], mapas, controles)"),
+           L("            self._prefs[nome] = ESTADO_SEMPRE",
+             "            conflito = self.verificar_tecla(nome, mapas[nome], mapas, controles)")))
+    add(_m("ATV10", "ativacao", "o mapa novo com a tecla ocupada nasce ativo do mesmo jeito",
+           "HK-01: mapa novo com tecla ocupada nasce desativado", ATV,
+           L("            if conflito is None:", "                self._sessao.add(nome)"),
+           L("            if True:", "                self._sessao.add(nome)")))
+    add(_m("ATV11", "ativacao", "o mapa novo que nasce desativado por conflito não avisa o motivo",
+           "HK-01: o motivo de o mapa ter nascido desativado é dito", ATV,
+           '                avisos.append(f"{conflito.mensagem} Por isso “{nome}” começou desativada.")', "                pass"))
+    add(_m("ATV12", "ativacao", "o estado 'só nesta sessão' vaza para o banco de configurações",
+           "só 'sempre' e 'desativado' são gravados", ATV,
+           L("            self._prefs[nome] = ESTADO_DESATIVADO", "            self._sessao.add(nome)"),
+           L("            self._prefs[nome] = ESTADO_SESSAO", "            self._sessao.add(nome)")))
+    add(_m("ATV13", "ativacao", "passar de 'sempre' para 'só nesta sessão' não avisa que na próxima abertura fica desativada",
+           "MAP-01: o aviso da mudança de 'sempre' para 'sessão'", ATV,
+           "                aviso = AVISO_DE_SEMPRE_PARA_SESSAO", '                aviso = ""'))
+    add(_m("ATV14", "ativacao", "ativar um mapa sobre uma tecla ocupada é aceito",
+           "HK-01: a ativação sobre tecla ocupada é recusada", ATV,
+           L("            if conflito is not None:", "                return Resultado(False, recusa_de_ativacao(conflito))"),
+           L("            if False:", "                return Resultado(False, recusa_de_ativacao(conflito))")))
+    add(_m("ATV15", "ativacao", "a mensagem de conflito não diz qual automação ativa usa a tecla",
+           "HK-01: a mensagem nomeia quem está com a tecla", ATV,
+           '        return f"A tecla “{tecla}” de “{perdedor}” já é usada pela automação ativa “{vencedor}”."',
+           '        return f"A tecla “{tecla}” de “{perdedor}” já é usada por outra automação."'))
+    add(_m("ATV16", "ativacao", "um estado desconhecido gravado no banco passa a ser aceito como preferência",
+           "ATV-04: o leitor ignora o que não é 'sempre' nem 'desativado'", ATV,
+           "if isinstance(nome, str) and nome and valor in PREFERENCIAS:", "if isinstance(nome, str) and nome and valor in ESTADOS:"))
+    add(_m("ATV17", "ativacao", "dados de ativação corrompidos derrubam a abertura",
+           "ATV-04: o programa abre mesmo com a ativação ilegível", ATV,
+           "        if isinstance(dados, Mapping):", "        if True:"))
+    add(_m("ATV18", "ativacao", "sincronizar apaga a preferência de um mapa que não veio na lista (não carregou)",
+           "a preferência só some quando o mapa é excluído, não quando ele falha ao carregar", ATV,
+           "        for nome in sorted((n for n in mapas if n not in self._prefs), key=ordem_dos_nomes):",
+           L("        self._prefs = {n: v for n, v in self._prefs.items() if n in mapas}",
+             "        for nome in sorted((n for n in mapas if n not in self._prefs), key=ordem_dos_nomes):")))
+    add(_m("ATV19", "ativacao", "excluir um mapa não apaga a preferência dele", "ATV-03: a preferência some com o mapa", ATV,
+           L("        self._prefs.pop(nome, None)", "        self._sessao.discard(nome)", "        return havia"),
+           L("        self._sessao.discard(nome)", "        return havia")))
+    add(_m("ATV20", "ativacao", "a mesma combinação escrita em outra ordem (CTRL+F6 / F6+CTRL) deixa de contar como a mesma tecla",
+           "o conflito compara combinações, não o texto", ATV,
+           "        combinacao = parse_combo(texto)", L("        parse_combo(texto)", "        combinacao = texto.upper()")))
+    add(_m("ATV21", "ativacao", "refazer os atalhos não limpa os antigos: o de um mapa desativado continua valendo",
+           "MAP-03: o mapa desativado não responde à tecla", ATV,
+           L("    gerente.clear()", "    erros: list[str] = []"), "    erros: list[str] = []"))
+    add(_m("ATV22", "ativacao", "uma tecla inválida levanta erro ao montar o plano em vez de ser apontada",
+           "uma tecla que não existe não derruba a janela", ATV,
+           L("    except ValueError:", "        plano.invalidos.append(Invalido(nome, texto, e_mapa, _mensagem_de_invalido(nome, texto, e_mapa)))"),
+           L("    except KeyError:", "        plano.invalidos.append(Invalido(nome, texto, e_mapa, _mensagem_de_invalido(nome, texto, e_mapa)))")))
+    add(_m("ATV23", "ativacao", "o mapa que perdeu a tecla para outro é descrito como se a tecla funcionasse",
+           "HK-01: a situação do conflito aparece na tela", ATV,
+           L("        conflito = plano.conflito_do_mapa(nome)", "        if conflito is not None:"),
+           L("        conflito = plano.conflito_do_mapa(nome)", "        if False:")))
+    add(_m("ATV24", "ativacao", "o dono de uma tecla é procurado pelo texto, não pela combinação",
+           "a conferência de conflito aceita a tecla escrita de qualquer jeito equivalente", ATV,
+           "        return self._donos.get(parse_combo(tecla.strip()))", "        return self._donos.get(tecla)"))
+
+    # controlador (ativacao_ui.py)
+    add(_m("ATV25", "ativacao", "o disparo de um mapa desativado que já estava na fila ainda o executa",
+           "MAP-03: a guarda de `_on_hotkey_triggered` ignora mapa desativado", ATU,
+           '        return self._estado().esta_ativo(acao[len("map:"):])', "        return True"))
+    add(_m("ATV26", "ativacao", "registrar os atalhos não alinha antes o estado dos mapas (o mapa novo ficaria sem tecla)",
+           "MAP-02: `registrar` é autossuficiente", ATU,
+           L("        self.sincronizar()", "        plano = self.plano()"), "        plano = self.plano()"))
+    add(_m("ATV27", "ativacao", "o mesmo conflito é avisado a cada registro de atalhos",
+           "HK-01: cada conflito é avisado uma vez", ATU,
+           "        novos = [mensagem for mensagem in atuais if mensagem not in self._avisados]", "        novos = list(atuais)"))
+    add(_m("ATV28", "ativacao", "um conflito que sumiu e voltou não é avisado de novo",
+           "HK-01: o aviso volta se o conflito reaparece", ATU,
+           "        self._avisados = set(atuais)", "        self._avisados |= set(atuais)"))
+    add(_m("ATV29", "ativacao", "mudar o estado de uma automação não refaz os atalhos globais",
+           "MAP-03: a tecla do mapa desativado deixa de valer na hora", ATU,
+           L("        self._gravar()", "        self.janela._register_all_hotkeys()"), "        self._gravar()"))
+    add(_m("ATV30", "ativacao", "mudar o estado de uma automação não grava a preferência no banco",
+           "MAP-01: o estado escolhido vale na próxima abertura", ATU,
+           L("        self._gravar()", "        self.janela._register_all_hotkeys()"), "        self.janela._register_all_hotkeys()"))
+    add(_m("ATV31", "ativacao", "mudar o estado não atualiza o rótulo e a faixa do editor",
+           "o editor mostra o estado verdadeiro", ATU,
+           "        self.janela._refresh_map_config_labels()", "        pass"))
+    add(_m("ATV32", "ativacao", "o aviso de 'sempre' para 'só nesta sessão' não vai para a barra de status",
+           "MAP-01: o aviso aparece", ATU,
+           L("        if resultado.mensagem:", "            self.janela.status_bar.showMessage(resultado.mensagem, 8000)"),
+           L("        if False:", "            self.janela.status_bar.showMessage(resultado.mensagem, 8000)")))
+    add(_m("ATV33", "ativacao", "uma tecla que não existe é aceita ao mudar a tecla da automação",
+           "HK-01: a tecla inválida é recusada", ATU,
+           L("        if not tecla_valida(tecla):", "            return recusa_de_tecla_invalida(tecla, nome, atual)"),
+           L("        if False:", "            return recusa_de_tecla_invalida(tecla, nome, atual)")))
+    add(_m("ATV34", "ativacao", "mudar a tecla de uma automação desativada para uma tecla ocupada passa a ser recusado",
+           "um mapa desativado não conflita: o conflito é conferido ao ativar", ATU,
+           L("        if not logica.esta_ativo(nome):", '            return ""'), L("        if False:", '            return ""')))
+    add(_m("ATV35", "ativacao", "mudar a tecla de uma automação ativa para uma tecla ocupada é aceito",
+           "HK-01: a mudança de tecla para uma tecla ocupada é recusada", ATU,
+           '        return recusa_de_tecla(conflito, atual) if conflito is not None else ""', '        return ""'))
+    add(_m("ATV36", "ativacao", "o controlador continua com as configurações antigas depois que a pasta de dados muda",
+           "o estado é o do banco da pasta de dados atual", ATU,
+           "        if self._logica is None or ajustes is not self._ajustes:", "        if self._logica is None:"))
+    add(_m("ATV37", "ativacao", "excluir uma automação não apaga a preferência dela no banco",
+           "ATV-03: a preferência é apagada junto", ATU,
+           L("        if self._estado().esquecer(nome):", "            self._gravar()"),
+           L("        if self._estado().esquecer(nome):", "            pass")))
+    add(_m("ATV38", "ativacao", "a migração da primeira abertura não é gravada",
+           "MAP-04: os mapas de antes ficam 'sempre ativos' também na abertura seguinte", ATU,
+           L("        if resultado.mudou:", "            self._gravar()"), L("        if False:", "            self._gravar()")))
+    add(_m("ATV39", "ativacao", "o aviso de que um mapa novo nasceu desativado por conflito não é mostrado",
+           "HK-01: o usuário é avisado", ATU, "        if resultado.avisos:", "        if False:"))
+    add(_m("ATV40", "ativacao", "o rótulo da tecla no editor deixa de dizer que a automação está desativada",
+           "o editor mostra que a tecla não inicia a automação", ATU, '            aviso = " (desativada)"', '            aviso = ""'))
+    add(_m("ATV41", "ativacao", "o rótulo da tecla no editor deixa de dizer que a tecla está em conflito",
+           "o editor mostra que a tecla perdeu o conflito", ATU, '            aviso = " (em conflito)"', '            aviso = ""'))
+
+    # a lista e a faixa (widgets: rodam no dublê)
+    add(_m("ATV42", "ativacao", "a lista de automações não recebe o estado de cada item",
+           "contrato com a frente visual: papel de dados 257", ATU,
+           "            item.setData(PAPEL_ESTADO, descricao.estado)", "            pass", modo=INTERFACE))
+    add(_m("ATV43", "ativacao", "a lista de automações não recebe o texto do conflito de cada item",
+           "contrato com a frente visual: papel de dados 258", ATU,
+           '            item.setData(PAPEL_CONFLITO, descricao.conflito.mensagem if descricao.conflito is not None else "")',
+           "            pass", modo=INTERFACE))
+    add(_m("ATV44", "ativacao", "a dica de cada item da lista perde a frase de abrir a automação",
+           "a dica diz o que o clique faz e a situação da ativação", ATU,
+           L("        if dica is not None:", "            self._dica = dica"), L("        if False:", "            self._dica = dica"), modo=INTERFACE))
+    add(_m("ATV45", "ativacao", "mostrar a automação na faixa passa a contar como uma escolha do usuário",
+           "só o usuário muda o estado: mostrar não mexe em nada", ATU,
+           "        self._ajustando = True", "        self._ajustando = False", modo=INTERFACE))
+    add(_m("ATV46", "ativacao", "depois de uma escolha recusada a faixa continua mostrando a escolha, não o estado verdadeiro",
+           "ATV-05: a faixa nunca mente sobre o estado", ATU,
+           "        self.mostrar(self._nome)", "        pass", modo=INTERFACE))
+    add(_m("ATV47", "ativacao", "a faixa é encaixada ACIMA da âncora em vez de logo abaixo",
+           "a faixa fica logo abaixo da instrução do editor", ATU,
+           "            layout.insertWidget(posicao + 1 if posicao >= 0 else layout.count(), painel)",
+           "            layout.insertWidget(posicao if posicao >= 0 else layout.count(), painel)", modo=INTERFACE))
+    add(_m("ATV48", "ativacao", "uma falha ao encaixar a faixa deixa de ser contida e derruba a abertura da janela",
+           "a faixa é um acréscimo: nunca impede o programa de abrir", ATU,
+           "        except Exception as exc:  # noqa: BLE001", "        except ZeroDivisionError as exc:  # noqa: BLE001", modo=INTERFACE))
+
+    # ligações com a janela principal e com o banco (protegidas por tests/static/test_ligacao_ativacao.py e pelos testes de persistência)
+    add(_m("ATV49", "ativacao", "a janela deixa de consultar a ativação ao receber o atalho de um mapa",
+           "MAP-03: a guarda está ligada", JAN, "            if not self.ativacao.acao_permitida(action_id):", "            if False:"))
+    add(_m("ATV50", "ativacao", "refazer os atalhos volta a registrar tudo sem passar pela ativação",
+           "MAP-03 e ATV-01: quem decide o que é registrado é a ativação", JAN, "        self.ativacao.registrar()", "        pass"))
+    add(_m("ATV51", "ativacao", "a lista de automações deixa de receber o estado e a dica",
+           "contrato com a frente visual: a lista é decorada a cada recarga", JAN,
+           "        self.ativacao.decorar_lista('Abrir esta automação para editar, visualizar a timeline ou executar.')", "        pass"))
+    add(_m("ATV52", "ativacao", "recarregar a lista não alinha a ativação: mapa novo ficaria sem estado",
+           "MAP-02: a ativação é sincronizada a cada recarga", JAN, "        self.ativacao.sincronizar()", "        pass"))
+    add(_m("ATV53", "ativacao", "excluir a automação não esquece a preferência dela",
+           "ATV-03: a janela avisa o controlador da exclusão", JAN, "            self.ativacao.esquecer(self._current_map.name)", "            pass"))
+    add(_m("ATV54", "ativacao", "a configuração da automação grava a tecla direto no mapa, sem passar pela validação",
+           "HK-01: a janela entrega a tecla ao controlador (`mudar_tecla`), que valida", JAN,
+           "        self.ativacao.mudar_tecla(m, new_hotkey)", "        m.hotkey = new_hotkey"))
+    add(_m("ATV55", "ativacao", "a tecla recusada é gravada no mapa do mesmo jeito",
+           "HK-01: a tecla anterior permanece quando a nova é recusada", ATU,
+           L("        if motivo:", '            self._mostrar("Tecla não alterada", motivo)', "            return False"),
+           L("        if motivo:", '            self._mostrar("Tecla não alterada", motivo)')))
+    add(_m("ATV61", "ativacao", "a tecla recusada não é avisada: a pessoa não sabe por que nada mudou",
+           "HK-01: o motivo da recusa é mostrado", ATU,
+           '            self._mostrar("Tecla não alterada", motivo)', "            pass"))
+    add(_m("ATV62", "ativacao", "a tecla aceita não é gravada no mapa",
+           "HK-01: a tecla livre é aplicada", ATU, "        mapa.hotkey = tecla", "        pass"))
+    add(_m("ATV56", "ativacao", "a janela não monta a faixa de ativação no editor",
+           "ATV-05: o seletor de estado existe no editor", JAN, "        self.ativacao.montar_painel(self.map_instruction)", "        pass"))
+    add(_m("ATV57", "ativacao", "o rótulo da tecla no editor volta a não mostrar a situação da ativação",
+           "o editor mostra que a tecla está desativada ou em conflito", JAN,
+           "        self.hotkey_label.setText(self.ativacao.rotulo_da_tecla(m))",
+           "        self.hotkey_label.setText(f\"Tecla para iniciar/parar: {m.hotkey or '—'}\")"))
+    add(_m("ATV58", "ativacao", "a faixa não é atualizada quando a automação aberta muda",
+           "ATV-05: a faixa acompanha a automação aberta", JAN, "        self.ativacao.atualizar_painel()", "        pass"))
+    add(_m("ATV59", "ativacao", "gravar a preferência de ativação não chega ao arquivo de configurações",
+           "ATV-03: a preferência de ativação persiste", PRJ,
+           "        self._data['map_activation'] = copy.deepcopy(values); self.save()",
+           "        self._data['map_activation'] = copy.deepcopy(values)"))
+    add(_m("ATV60", "ativacao", "ler a preferência de ativação devolve o dicionário interno, não uma cópia",
+           "quem altera o resultado não altera a configuração", PRJ,
+           "        return copy.deepcopy(saved) if isinstance(saved, dict) else {}", "        return saved if isinstance(saved, dict) else {}"))
 
     # ---------------------------------------------------------------------------------------------- botões laterais (D1)
     add(_m("BTN01", "botoes", "o monitor volta a trocar X1 e X2 (a troca em dobro do 25.3)", "decisão D1: só o mouse virtual troca os nomes",
@@ -1198,6 +1422,9 @@ def catalogo() -> list[Mutante]:
     add(_m("EST12", "estatico", "um return dentro de um bloco finally (aviso de sintaxe no Python 3.14, que o ambiente de desenvolvimento não tem)",
            "o pacote não sai de um bloco finally",
            "automationstudio/vision.py", acrescentar=L("def _finally_com_retorno():", "    try:", "        return 1", "    finally:", "        return 2")))
+    add(_m("EST13", "estatico", "a parada de emergência perde o ramo em `_on_hotkey_triggered` (a tecla chega e some)",
+           "o verificador das lacunas de ligação enxerga os ramos que existem (senão o xfail do achado 2.11 falharia por qualquer motivo)",
+           JAN, '        elif action_id == "control:emergency":\n', '        elif action_id == "control:emergencia":\n'))
     return c
 
 
