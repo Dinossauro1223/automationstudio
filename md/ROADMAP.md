@@ -1,4 +1,4 @@
-# Roadmap do Automation Studio (atualizado na 25.6)
+# Roadmap do Automation Studio (revisado em 30/10/2026, na integração das frentes visual e de funções)
 
 Este documento diz **onde estamos, o que vem e em que ordem**. Os planos detalhados de cada ponto são feitos um de cada vez, quando chega a vez dele. Aqui ficam o rumo, o que cada ponto traz e o que um ponto exige dos que vêm antes.
 
@@ -17,6 +17,22 @@ Este documento diz **onde estamos, o que vem e em que ordem**. Os planos detalha
 **Ordem recomendada: 3 → 4 → 5 → 6 → 7.** O Ponto 7 só fica bem feito em cima dos outros: ele precisa do formato novo (3), de uma visão que rode sem o Qt (4 e 6) e de um motor que saiba esperar, desistir e voltar atrás sem prender teclas (5). Fazê-lo antes custaria refazer. A seção "O que o Ponto 7 exige dos Pontos 3 a 6" diz exatamente o quê.
 
 Antes do Ponto 3 o certo é você rodar a 25.6 (`Rodar_Testes.bat`) e me enviar o resultado: o Ponto 3 vai apoiar os cenários de teste no formato novo, e eu prefiro apoiá-los numa suíte que já rodou inteira no seu computador.
+
+### O que entrou na `main` fora da numeração dos pontos (30/10/2026)
+
+Duas frentes trabalharam em paralelo, cada uma no seu ramo, e foram juntadas e testadas pela conta de integração (`md/DELEGACAO.md`):
+
+| Frente | O que entrou | Situação |
+|---|---|---|
+| Visual: `visual/novo-tema` | Tema novo: tokens de cor, folha de estilo global, hierarquia de botões (`md/REDESIGN_VISUAL.md`) | Na `main`. Falta a conferência visual no Windows (checklist do `REDESIGN_VISUAL.md`) |
+| Funções: `funcoes/ativacao-mapas` ("25.8") | Ativação por mapa (ativo só nesta sessão, sempre ativo ou desativado) e conflito de atalhos, itens MAP-01 a MAP-04 e HK-01 (`md/ENTREGA_25_8.md`) | Na `main`. Falta a conferência de 5 minutos no Windows (seção 2 do `ENTREGA_25_8.md`) |
+| Infraestrutura | `.gitattributes` (CRLF nos `.bat`), testes de comportamento do `vision.py` (cobertura do módulo de 18% para 85%) e testes automáticos no GitHub Actions | Na `main`. O GitHub Actions ainda não foi executado pelo GitHub |
+
+`APP_VERSION` continua `25.6`: fechar a versão e o changelog é do dono.
+
+**Evidência de teste fora do Windows.** Em 30/10/2026 a suíte completa rodou no Linux, com Python 3.14.4 e PySide6 6.12.0 (Qt de verdade, sem janela visível, display virtual): 1677 testes comuns e 34 de janela passaram, nenhum falhou e 7 são `xfail` estritos (lacunas conhecidas). Isso confirma o Qt real e o Python 3.14 para o código da `main`. **Não** substitui a rodada no Windows: os atalhos globais com o `pynput`, o `SendInput`, os `.bat` e o travamento do 22º teste da janela principal seguem sem prova.
+
+**Paralelismo entre as contas.** Aparência e comportamento andam juntos sem problema: a junção de 30/10/2026 deu zero conflitos. Os **Pontos 3 e 4 são diferentes**: mexem nos mesmos arquivos que as duas frentes (`core.py`, `project.py`, `input_system.py`, `main_window.py`, `command_editor.py`). Enquanto um deles estiver em andamento, as outras frentes só fazem mudanças pequenas e localizadas nesses arquivos, e a integração marca uma janela antes. O Ponto 6 (visão) é o mais independente: `vision.py` não é tocado por nenhuma outra frente e já tem testes de comportamento, então pode ser entregue a uma terceira conta. As tarefas de cada conta estão em `md/DELEGACAO.md`.
 
 ## O que cada ponto traz
 
@@ -133,7 +149,7 @@ Verificação "se esta imagem estiver na tela, execute o bloco X" numa faixa de 
 |---|---|---|
 | D17 | Onde moram as sequências de recuperação | **Blocos nomeados dentro do mapa, fora da linha do tempo** (alternativas: comandos marcados "só para recuperação" na própria lista; um mapa à parte) |
 | D18 | "Voltar K comandos": como contar | **K comandos na ordem de início, voltando ao começo do comando** (como você descreveu); um "ponto de retomada" marcado pelo usuário fica como evolução |
-| D19 | Casamento de imagem e dependência | **OpenCV (`opencv-python-headless`) como dependência obrigatória, se houver pacote para o 3.14**, com aviso claro na verificação de dependências; senão, um casamento próprio mais limitado, assumido como tal |
+| D19 | Casamento de imagem e dependência | **OpenCV (`opencv-python-headless`) como dependência obrigatória, se houver pacote para o 3.14**, com aviso claro na verificação de dependências; senão, um casamento próprio mais limitado, assumido como tal *Verificado em 30/10/2026: há pacote para o 3.14 no Windows, `opencv-python-headless` 5.0.0.93 (`cp37-abi3`) e `numpy` 2.5.4 (`cp314`); instalar é possível, mas não foi testado em execução no Windows.* |
 | D20 | Como capturar a tela | **Manter o Qt, mas fora da thread do motor (a captura é pedida à thread da interface)**, depois de medir no Windows com escala 100%, 125% e 150% (alternativa: GDI via ctypes) |
 | D21 | Quando as tentativas se esgotam | **Parar com erro** (o comportamento de hoje), configurável por espera para "continuar" ou "pular" |
 | D22 | Pop-ups sem aviso | **Verificação nos pontos de espera na primeira versão** (fase 7.D), sem vigia em segundo plano |
@@ -154,4 +170,8 @@ Só para eu chegar ao Ponto 7 com dados em vez de suposições (F5, F7, F9). **N
 
 - O título da janela **nunca mostrou a versão** (o `__init__` a coloca, mas `_update_status_label` a troca por "Automation Studio — ● PARADO" na construção). Se você quiser a versão no título, é uma mudança do programa a decidir à parte; hoje ela só aparece nos arquivos e no README.
 - `main_window.py` tem uma função interna `size_toolbar` que nunca é chamada (e que, se fosse, se reagendaria sozinha com `QTimer.singleShot(0, ...)`) e um `toolbar_hint` que nunca é criado. Código morto; limpar no Ponto 4.
+- **F9 e F10 não pausam nem continuam** (achado 2.11, `md/ENTREGA_25_8.md`, seção 7). O motor tem `pause()` e `resume()`, mas nada na janela os chama: as teclas são registradas e o disparo some em `_on_hotkey_triggered`. Há um `xfail` estrito esperando a correção (`tests/static/test_lacunas_de_ligacao.py`). Onde um plano disser que a pausa "já funciona", está errado: o motor pausa, a tecla não.
+- **O "plano 25.7" não está no repositório.** As entregas das duas frentes citam um plano 25.7 (itens MAP-01 a MAP-04, HK-01, decisões D24 a D34) que não está em `md/`; este roadmap vai até D23. Ele precisa ser commitado para que todas as contas trabalhem da mesma fonte.
+- **Lacuna F4 com teste.** A comparação de imagens do `vision.py` é uma média: um elemento de 4% da região que falta na tela dá 0,96, acima da confiança padrão (0,95), e a espera termina como se ele estivesse lá. Está guardada como `xfail` estrito em `tests/unit/test_vision_comportamento.py`; sai quando a fase 7.A trocar o casamento.
+- Arquivos duplicados na raiz (`ROADMAP.md`, `PONTO2_REVISAO_25_6.md`) eram cópias idênticas dos de `md/` e foram removidos; `ALTERACOES_25_5_para_25_6.diff` (230 KB) segue na raiz, à espera de decisão do dono.
 - Quando o programa é aberto como administrador, o diretório atual é `C:\Windows\System32` (visto no seu log). Não faz diferença: o programa só usa o diretório atual para escrever diagnósticos, e os caminhos dele partem da pasta do script.
