@@ -8,6 +8,7 @@ from . import core
 from .core import *
 from .input_system import *
 from .project import *
+from .ativacao_ui import ControladorAtivacao
 from .tutorial import *
 from .overlays import *
 from .command_editor import *
@@ -182,6 +183,9 @@ class MainWindow(QMainWindow):
         self.hotkey_manager = GlobalHotkeyManager()
         self.hotkey_bridge = HotkeyBridge()
         self.hotkey_bridge.triggered.connect(self._on_hotkey_triggered)
+        # 25.8: ativação por mapa (só nesta sessão / sempre / desativado) e conferência de conflitos de tecla. Lê as
+        # configurações e os mapas na hora, por isso já pode existir aqui; o que decide é aplicado em `_register_all_hotkeys`.
+        self.ativacao = ControladorAtivacao(self)
 
         self.keyboard_overlay: KeyboardOverlay | None = None
         self.mouse_overlay: MouseOverlay | None = None
@@ -231,6 +235,7 @@ class MainWindow(QMainWindow):
 
         self._build_toolbar()
         self._build_body()
+        self.ativacao.montar_painel(self.map_instruction)  # 25.8: a faixa de ativação, no editor, logo abaixo da instrução
         self._restore_main_window_layout()
         self.error_notice = InAppErrorNotice(self)
         self._position_error_notice()
@@ -1246,11 +1251,12 @@ class MainWindow(QMainWindow):
 
     def _reload_map_list(self) -> None:
         self.project_manager.load_all()
+        self.ativacao.sincronizar()  # 25.8: mapas novos nascem com o estado certo e a migração da primeira abertura é gravada
         self.map_list.clear()
         for name in sorted(self.project_manager.maps.keys()):
-            item=QListWidgetItem(name)
-            item.setToolTip('Abrir esta automação para editar, visualizar a timeline ou executar.')
-            self.map_list.addItem(item)
+            self.map_list.addItem(QListWidgetItem(name))
+        # A dica de cada item (a frase de abrir + o estado da ativação) e os papéis de dados do estado e do conflito.
+        self.ativacao.decorar_lista('Abrir esta automação para editar, visualizar a timeline ou executar.')
         self._filter_map_list(getattr(self, 'map_search', None).text() if hasattr(self, 'map_search') else '')
         # Não abrir automaticamente um mapa: primeiro a pessoa escolhe o que deseja usar.
         self.map_list.clearSelection()
@@ -1317,6 +1323,7 @@ class MainWindow(QMainWindow):
         )
         if confirm == QMessageBox.Yes:
             self.project_manager.delete_map(self._current_map.name)
+            self.ativacao.esquecer(self._current_map.name)  # 25.8: a preferência de ativação some junto com a automação
             self._current_map = None
             self.command_table.set_map(None)
             self.timeline_panel.set_map(None)
@@ -1413,10 +1420,11 @@ class MainWindow(QMainWindow):
             self._restore_history_view(); self.status_bar.showMessage('Alteração refeita.', 1800)
 
     def _refresh_map_config_labels(self) -> None:
+        self.ativacao.atualizar_painel()  # 25.8: a faixa de ativação mostra a automação aberta (ou se esconde sem nenhuma)
         if not self._current_map:
             return
         m = self._current_map
-        self.hotkey_label.setText(f"Tecla para iniciar/parar: {m.hotkey or '—'}")
+        self.hotkey_label.setText(self.ativacao.rotulo_da_tecla(m))  # "Tecla para iniciar/parar: =", + (desativada) etc.
         repeat_text = "∞" if m.repeat_count == -1 else str(m.repeat_count)
         self.repeat_label.setText(f"Repetição: {repeat_text}x")
         self.speed_label.setText(f"Velocidade: {int(m.speed * 100)}%")
@@ -1461,14 +1469,18 @@ class MainWindow(QMainWindow):
             )
             if not ok:
                 return
-            m.hotkey = hotkey.strip() or "="
+            new_hotkey = hotkey.strip() or "="
         else:
             mouse_map = {
                 trigger_options[1]:"MOUSE_LEFT", trigger_options[2]:"MOUSE_RIGHT",
                 trigger_options[3]:"MOUSE_MIDDLE", trigger_options[4]:"MOUSE_X1",
                 trigger_options[5]:"MOUSE_X2"
             }
-            m.hotkey = mouse_map[choice]
+            new_hotkey = mouse_map[choice]
+
+        # 25.8: uma tecla que não existe, ou que já é de outra automação ativa ou de um atalho de controle, é recusada
+        # (com aviso) e a tecla anterior fica. As demais perguntas seguem, para não perder o resto do que a pessoa configura.
+        self.ativacao.mudar_tecla(m, new_hotkey)
 
         repeat, ok = QInputDialog.getInt(
             self, "Repetição", "Quantas vezes a automação deve repetir? (-1 = infinito):",
@@ -1518,10 +1530,14 @@ class MainWindow(QMainWindow):
 
     def _register_all_hotkeys(self) -> None:
         """Reconstrói TODOS os atalhos globais a partir do zero: um por
-        mapa (item 8/28) + os de controle (item 10/11: pausar/continuar/
-        emergência). Chamado sempre que algo que afeta atalhos muda --
-        mapa criado/importado/excluído, atalho de mapa editado, ou
-        atalhos de controle reconfigurados.
+        mapa ATIVO (item 8/28; 25.8) + os de controle (item 10/11: pausar/
+        continuar/emergência). Chamado sempre que algo que afeta atalhos
+        muda -- mapa criado/importado/excluído, atalho de mapa editado,
+        estado de ativação mudado, ou atalhos de controle reconfigurados.
+
+        Quem decide o que entra, e avisa dos conflitos, é `self.ativacao`
+        (ativacao.py / ativacao_ui.py): os atalhos de controle têm
+        prioridade sobre os de mapa, e um mapa desativado não registra tecla.
 
         Roda de novo do zero (em vez de só diff'ar o que mudou) porque é
         simples, barato (poucas dezenas de atalhos no máximo) e evita
@@ -1529,40 +1545,7 @@ class MainWindow(QMainWindow):
         """
         if not self.hotkey_manager.available:
             return
-        self.hotkey_manager.clear()
-        conflicts: list[str] = []
-
-        for automation_map in self.project_manager.maps.values():
-            if not automation_map.hotkey:
-                continue
-            try:
-                self.hotkey_manager.register(
-                    automation_map.hotkey,
-                    self.hotkey_bridge.make_callback(f"map:{automation_map.name}"),
-                )
-            except HotkeyConflictError as exc:
-                conflicts.append(f"Mapa '{automation_map.name}': {exc}")
-
-        control = self.settings.get_control_hotkeys()
-        for action_id, hotkey in (
-            ("control:pause", control.get("pause")),
-            ("control:resume", control.get("resume")),
-            ("control:emergency", control.get("emergency")),
-            ("record:toggle", control.get("record_toggle")),
-            ("record:cancel", control.get("record_cancel")),
-        ):
-            if not hotkey:
-                continue
-            try:
-                self.hotkey_manager.register(hotkey, self.hotkey_bridge.make_callback(action_id))
-            except HotkeyConflictError as exc:
-                conflicts.append(f"Atalho de controle '{action_id.split(':')[1]}': {exc}")
-
-        if conflicts:
-            QMessageBox.warning(
-                self, "Conflito de atalhos",
-                "Alguns atalhos não foram ativados por conflito:\n\n" + "\n".join(conflicts),
-            )
+        self.ativacao.registrar()
 
     def _open_settings(self) -> None:
         """Abre Configurações no mesmo painel lateral do editor de comandos."""
@@ -1637,6 +1620,8 @@ class MainWindow(QMainWindow):
         # Já estamos de volta na GUI thread aqui (Signal/slot do Qt) --
         # seguro tocar widgets, StateManager, ExecutionEngine, etc.
         if action_id.startswith("map:"):
+            if not self.ativacao.acao_permitida(action_id):
+                return  # 25.8: a tecla de uma automação desativada não a executa (mesmo que o disparo já estivesse na fila)
             automation_map = self.project_manager.maps.get(action_id[len("map:"):])
             if automation_map is not None:
                 self._run_map_via_hotkey(automation_map)

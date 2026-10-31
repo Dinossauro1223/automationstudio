@@ -11,7 +11,7 @@ Modos:
     repetir [N]  roda a suíte N vezes seguidas (padrão 10) para achar teste instável
     cobertura    mede a cobertura de linhas e de ramos do pacote (precisa do `coverage`) e confere a catraca: a cobertura
                  de cada parte não pode cair em relação a tests/coverage_baseline.json (gravado na primeira rodada)
-    mutacoes     planta defeitos de propósito e confere que os testes os pegam (cerca de 45 min; `--retomar` continua se parar)
+    mutacoes     planta defeitos de propósito e confere que os testes os pegam (cerca de 55 min; `--retomar` continua se parar)
     instalar     instala o que falta para os testes completos: pytest, pytest-timeout e coverage (precisa de internet)
     ajuda        mostra isto
 

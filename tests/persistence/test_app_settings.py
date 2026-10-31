@@ -198,6 +198,55 @@ def test_settings_json_legado_so_vale_com_o_banco_sem_configuracoes(tmp_path):
     assert (tmp_path / "settings.json").exists()
 
 
+# ----------------------------------------------------------------------------------------- ativação por mapa (25.8)
+def test_ativacao_por_mapa_sem_nada_gravado_devolve_vazio_e_nao_grava(tmp_path):
+    configuracoes = AppSettings(tmp_path)
+    assert configuracoes.get_map_activation() == {}
+    assert raw_rows(configuracoes.db_path, "settings") == []
+
+
+def test_ativacao_por_mapa_ida_e_volta_e_a_leitura_devolve_uma_copia(tmp_path):
+    dados = {"migrated": True, "prefs": {"Exemplo — Primeira automação": "sempre", "Outro": "desativado"}}
+    AppSettings(tmp_path).set_map_activation(dados)
+    lido = AppSettings(tmp_path).get_map_activation()
+    assert lido == dados
+    lido["prefs"]["Outro"] = "ALTERADO"
+    assert AppSettings(tmp_path).get_map_activation() == dados
+    configuracoes = AppSettings(tmp_path)
+    configuracoes.get_map_activation()["prefs"]["Outro"] = "ALTERADO"
+    assert configuracoes.get_map_activation() == dados, "alterar o que a leitura devolveu não pode alterar a configuração"
+
+
+def test_gravar_a_ativacao_guarda_uma_copia(tmp_path):
+    configuracoes = AppSettings(tmp_path)
+    dados = {"migrated": True, "prefs": {"A": "sempre"}}
+    configuracoes.set_map_activation(dados)
+    dados["prefs"]["A"] = "desativado"
+    assert configuracoes.get_map_activation()["prefs"]["A"] == "sempre"
+
+
+def test_ativacao_por_mapa_fica_legivel_no_banco_com_a_chave_map_activation(tmp_path):
+    configuracoes = AppSettings(tmp_path)
+    configuracoes.set_map_activation({"migrated": True, "prefs": {"Ação": "sempre"}})
+    (linha,) = [valor for chave, valor in raw_rows(configuracoes.db_path, "settings") if chave == "map_activation"]
+    assert "Ação" in linha and json.loads(linha)["prefs"] == {"Ação": "sempre"}
+
+
+@pytest.mark.parametrize("bruto", ['"lixo"', "[1, 2]", "5", "null", "true"])
+def test_ativacao_por_mapa_de_tipo_inesperado_volta_a_vazio(tmp_path, bruto):
+    configuracoes = AppSettings(tmp_path)
+    raw_exec(configuracoes.db_path, "INSERT INTO settings(key,value) VALUES(?,?)", ("map_activation", bruto))
+    assert AppSettings(tmp_path).get_map_activation() == {}
+
+
+def test_gravar_a_ativacao_nao_mexe_nas_outras_configuracoes(tmp_path):
+    configuracoes = AppSettings(tmp_path)
+    configuracoes.set_control_hotkeys({"pause": "F5"})
+    configuracoes.set_map_activation({"migrated": True, "prefs": {}})
+    assert AppSettings(tmp_path).get_control_hotkeys()["pause"] == "F5"
+    assert [chave for chave, _ in raw_rows(configuracoes.db_path, "settings")] == ["control_hotkeys", "map_activation"]
+
+
 # ----------------------------------------------------------------------------------------- limitação conhecida
 def test_atalho_de_controle_apagado_volta_ao_padrao_nao_existe_atalho_desligado(tmp_path):
     # Achado 2.05 (caracterização): a tela de configurações deixa o campo em branco, set_control_hotkeys descarta o

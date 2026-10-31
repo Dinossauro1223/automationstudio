@@ -141,6 +141,9 @@ class QObject(metaclass=_QtMeta):
     def parent(self):
         return self._qparent
 
+    def setObjectName(self, name) -> None: self._object_name = str(name)
+    def objectName(self) -> str: return getattr(self, "_object_name", "")
+
     def findChildren(self, cls, *_args, **_kwargs) -> list:
         found = []
         for child in self._qchildren:
@@ -252,6 +255,10 @@ class QWidget(QObject):
 
     def layout(self):
         return self._layout
+
+    def parentWidget(self):
+        """O widget pai (None se não há ou se o pai não é um widget), como no Qt."""
+        return self._qparent if isinstance(self._qparent, QWidget) else None
 
     def _attach_layout(self, layout) -> None:
         self._layout = layout
@@ -540,7 +547,8 @@ class QListWidgetItem:
     def text(self) -> str: return self._text
     def setData(self, role, value) -> None: self._data[role] = value
     def data(self, role): return self._data.get(role)
-    def setToolTip(self, _text) -> None: pass
+    def setToolTip(self, text) -> None: self._tooltip = str(text)
+    def toolTip(self) -> str: return getattr(self, "_tooltip", "")
     def setHidden(self, flag) -> None: self._hidden = bool(flag)
     def isHidden(self) -> bool: return getattr(self, "_hidden", False)
 
@@ -654,6 +662,20 @@ class QBoxLayout(QLayout):
 
     def addStretch(self, stretch=0) -> None:
         self._items.append(_Item())
+
+    def indexOf(self, widget) -> int:
+        """Posição do widget NESTE layout (não olha os layouts filhos, como o Qt); -1 se não está."""
+        for position, item in enumerate(self._items):
+            if item.widget() is widget:
+                return position
+        return -1
+
+    def insertWidget(self, index: int, widget, stretch=0, alignment=0) -> None:
+        """Índice negativo = no fim. Índice maior que o número de itens o Qt 6 não aceita (comportamento indefinido): aqui é erro."""
+        if index > len(self._items):
+            raise IndexError(f"insertWidget({index}) com só {len(self._items)} itens: o Qt 6 não aceita")
+        self._items.insert(len(self._items) if index < 0 else index, _Item(widget=widget))
+        self._take_widget(widget)
 
     def itemAt(self, index: int):
         return self._items[index] if 0 <= index < len(self._items) else None
