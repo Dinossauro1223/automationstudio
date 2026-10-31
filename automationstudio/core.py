@@ -167,23 +167,23 @@ _MIN_PPS = 12.0
 
 _MAX_PPS = 400.0
 
-_COLOR_BG = QColor("#141416")
+_COLOR_BG = QColor("#14171c")
 
-_COLOR_ROW_ALT = QColor("#19191c")
+_COLOR_ROW_ALT = QColor("#191d23")
 
-_COLOR_GRID = QColor("#26262a")
+_COLOR_GRID = QColor("#242a32")
 
-_COLOR_GRID_STRONG = QColor("#3a3a3e")
+_COLOR_GRID_STRONG = QColor("#343c47")
 
-_COLOR_RULER_BG = QColor("#0f0f11")
+_COLOR_RULER_BG = QColor("#1a1d23")
 
-_COLOR_LABEL = QColor("#c7c7cc")
+_COLOR_LABEL = QColor("#c2c9d3")
 
-_COLOR_LABEL_DISABLED = QColor("#6a6a6e")
+_COLOR_LABEL_DISABLED = QColor("#5f6977")
 
-_COLOR_UNGROUPED = QColor("#5a5a5e")
+_COLOR_UNGROUPED = QColor("#4a525e")
 
-_COLOR_UNGROUPED_BORDER = QColor("#8a8a8f")
+_COLOR_UNGROUPED_BORDER = QColor("#7d8796")
 
 _COLOR_ACTIVE = QColor("#ffc53d")
 
@@ -1400,46 +1400,173 @@ def _resolve_theme_mode(settings: dict[str, Any]) -> tuple[bool, str]:
     accent = settings.get("accent_dark" if dark else "accent_light", "#FFC53D" if dark else "#2F6FED")
     return dark, str(accent)
 
+def _hex_rgb(value: str) -> tuple[int, int, int]:
+    """Converte '#RRGGBB' em (r, g, b)."""
+    v = str(value).lstrip("#")
+    return int(v[0:2], 16), int(v[2:4], 16), int(v[4:6], 16)
+
+def _mix_hex(a: str, b: str, amount: float) -> str:
+    """Mistura duas cores '#RRGGBB': amount=0 devolve `a`, amount=1 devolve `b`."""
+    t = max(0.0, min(1.0, float(amount)))
+    ca, cb = _hex_rgb(a), _hex_rgb(b)
+    r, g, bl = (round(x + (y - x) * t) for x, y in zip(ca, cb))
+    return f"#{r:02x}{g:02x}{bl:02x}"
+
+def _relative_luminance(color: str) -> float:
+    """Luminância relativa (WCAG) de '#RRGGBB'."""
+    def channel(v: int) -> float:
+        x = v / 255.0
+        return x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4
+    r, g, b = _hex_rgb(color)
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+def _on_color_hex(background: str) -> str:
+    """Texto legível sobre `background`: o que der mais contraste entre branco e quase preto."""
+    lum = _relative_luminance(background)
+    white_contrast = 1.05 / (lum + 0.05)
+    dark_contrast = (lum + 0.05) / (_relative_luminance("#17191d") + 0.05)
+    return "#ffffff" if white_contrast >= dark_contrast else "#17191d"
+
+def _theme_tokens(dark: bool, accent: str, light_surface: str = "#ffffff", light_contrast: str = "#2f343b") -> dict[str, str]:
+    """Cores do tema (tokens). Todo o visual do tema nasce daqui.
+
+    O acento (`accent`) e, no tema claro, a superfície e o contraste vêm das configurações do usuário;
+    as demais cores são derivadas delas. No tema escuro há três camadas: janela (`window`), áreas de
+    conteúdo rebaixadas (`base`) e controles elevados (`button`/`hover`).
+    """
+    if dark:
+        t = {
+            "window": "#1a1d23", "base": "#14171c", "alt": "#191d23",
+            "button": "#262b33", "hover": "#2e343e", "pressed": "#1f242b",
+            "border": "#2b313a", "border_strong": "#3b4350",
+            "text": "#e8ebf0", "muted": "#9aa4b2", "disabled": "#5f6977",
+            "danger": "#ff6b63", "tooltip": "#262b33",
+        }
+        soft = 0.22
+    else:
+        s, c = light_surface, light_contrast
+        t = {
+            "window": s, "base": s, "alt": _mix_hex(s, c, 0.035),
+            "button": _mix_hex(s, c, 0.05), "hover": _mix_hex(s, c, 0.10), "pressed": _mix_hex(s, c, 0.15),
+            "border": _mix_hex(s, c, 0.16), "border_strong": _mix_hex(s, c, 0.30),
+            "text": c, "muted": _mix_hex(s, c, 0.72), "disabled": "#9a9ea5",
+            "danger": "#c9302c", "tooltip": "#ffffff",
+        }
+        soft = 0.14
+    t["accent"] = accent
+    t["accent_hover"] = _mix_hex(accent, "#ffffff", 0.14)
+    t["accent_press"] = _mix_hex(accent, "#000000", 0.14)
+    t["accent_soft"] = _mix_hex(t["base"], accent, soft)
+    t["on_accent"] = _on_color_hex(accent)
+    return t
+
+# Folha de estilo global. Os @tokens@ são trocados por _theme_tokens(); as chaves ficam literais de propósito.
+# Regras de ouro: não mudar o tamanho dos controles (os paddings abaixo são os de sempre) e não mexer em
+# sub-controles nativos (setas de combo/spinbox, indicadores de checkbox) que o Qt desenha sozinho.
+# Botões com visual próprio (estilo inline no widget) continuam valendo: o estilo do widget vence o global.
+_APP_QSS = """
+QWidget { background: @window@; color: @text@; }
+QLabel { background: transparent; }
+QCheckBox, QRadioButton { background: transparent; }
+QToolTip { padding: 5px 8px; border: 1px solid @border_strong@; border-radius: 4px; background: @tooltip@; color: @text@; }
+QGroupBox { font-weight: 600; }
+QTabBar::tab { padding: 7px 12px; }
+
+QScrollBar:vertical { width: 6px; background: transparent; margin: 0; }
+QScrollBar:horizontal { height: 6px; background: transparent; margin: 0; }
+QScrollBar::add-line, QScrollBar::sub-line { width: 0px; height: 0px; border: 0; background: transparent; }
+QScrollBar::add-page, QScrollBar::sub-page { background: transparent; border: 0; }
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background: @border_strong@; border-radius: 3px; min-height: 28px; min-width: 28px; }
+QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover { background: @muted@; }
+QScrollBar::handle:vertical:pressed, QScrollBar::handle:horizontal:pressed { background: @accent@; }
+
+QTableWidget { gridline-color: @border@; background: @base@; }
+QListWidget { background: @base@; border: 1px solid @border@; outline: 0; }
+QListWidget::item { padding: 5px 8px; margin: 0px 2px 1px 2px; border-radius: 5px; }
+QListWidget::item:hover { background: @hover@; }
+QListWidget::item:selected, QListWidget::item:selected:!active { background: @accent_soft@; color: @text@; }
+QHeaderView::section { padding: 6px; font-weight: 600; background: @button@; color: @muted@; border: 0; border-bottom: 1px solid @border@; border-right: 1px solid @border@; }
+
+QPushButton { padding: 6px 10px; background: @button@; color: @text@; border: 1px solid @border_strong@; border-radius: 6px; }
+QPushButton:hover { background: @hover@; border-color: @muted@; }
+QPushButton:pressed { background: @pressed@; }
+QPushButton:checked { background: @accent_soft@; border-color: @accent@; }
+QPushButton:flat { background: transparent; border-color: transparent; }
+QPushButton:focus { border-color: @accent@; }
+QPushButton:disabled { background: @window@; color: @disabled@; border-color: @border@; }
+QPushButton:default, QPushButton[primary="true"] { background: @accent@; color: @on_accent@; border-color: @accent@; }
+QPushButton:default:hover, QPushButton[primary="true"]:hover { background: @accent_hover@; border-color: @accent_hover@; }
+QPushButton:default:pressed, QPushButton[primary="true"]:pressed { background: @accent_press@; border-color: @accent_press@; }
+QPushButton:default:disabled, QPushButton[primary="true"]:disabled { background: @window@; color: @disabled@; border-color: @border@; }
+
+QToolBar { background: @window@; border: 0; spacing: 2px; padding: 0px; }
+QToolBar::separator { background: @border@; width: 1px; margin: 5px 6px; }
+QToolBar QToolButton { background: transparent; color: @text@; border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; margin: 0px; }
+QToolBar QToolButton:hover { background: @hover@; border-color: @border@; }
+QToolBar QToolButton:pressed { background: @pressed@; }
+QToolBar QToolButton:checked { background: @accent_soft@; border-color: @accent@; }
+QToolBar QToolButton:disabled { color: @disabled@; }
+QToolBar QToolButton[danger="true"] { color: @danger@; }
+QToolBar QToolButton[danger="true"]:disabled { color: @disabled@; }
+QToolBar QToolButton[primary="true"] { background: @accent@; color: @on_accent@; border-color: @accent@; font-weight: 600; }
+QToolBar QToolButton[primary="true"]:hover { background: @accent_hover@; border-color: @accent_hover@; }
+QToolBar QToolButton[primary="true"]:pressed { background: @accent_press@; border-color: @accent_press@; }
+QToolBar QToolButton[primary="true"]:disabled { background: @button@; color: @disabled@; border-color: @border@; }
+
+QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QSpinBox, QDoubleSpinBox { padding: 4px 6px; background: @base@; color: @text@; border: 1px solid @border_strong@; border-radius: 5px; }
+QLineEdit:hover, QTextEdit:hover, QPlainTextEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover { border-color: @muted@; }
+QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:on { border-color: @accent@; }
+QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled { color: @disabled@; background: @window@; border-color: @border@; }
+QAbstractSpinBox QLineEdit, QComboBox QLineEdit { background: transparent; border: 0; border-radius: 0; padding: 0px; }
+QComboBox QAbstractItemView { background: @base@; color: @text@; border: 1px solid @border_strong@; outline: 0; }
+
+QMenu { background: @base@; color: @text@; border: 1px solid @border_strong@; padding: 4px; }
+QMenu::item { padding: 6px 24px 6px 12px; border-radius: 4px; }
+QMenu::item:selected { background: @accent@; color: @on_accent@; }
+QMenu::item:disabled { color: @disabled@; }
+QMenu::separator { height: 1px; background: @border@; margin: 4px 6px; }
+
+QProgressBar { background: @base@; color: @text@; border: 1px solid @border_strong@; border-radius: 5px; text-align: center; }
+QProgressBar::chunk { background: @accent@; border-radius: 4px; }
+QSplitter::handle { background: @border@; }
+QStatusBar { background: @window@; color: @muted@; border-top: 1px solid @border@; }
+QStatusBar::item { border: 0; }
+QStatusBar QLabel { color: @muted@; }
+"""
+
+def _build_app_stylesheet(tokens: dict[str, str]) -> str:
+    """Monta a folha de estilo global trocando cada @token@ pelo valor correspondente."""
+    qss = _APP_QSS
+    for key, value in tokens.items():
+        qss = qss.replace(f"@{key}@", value)
+    return qss
+
 def _apply_application_palette(app: QApplication, dark: bool, accent: str, settings: dict[str, Any] | None = None) -> None:
     settings = settings or {}
+    t = _theme_tokens(
+        dark,
+        _normalized_color(accent).name(),
+        _normalized_color(settings.get("light_surface", "#FFFFFF")).name(),
+        _normalized_color(settings.get("light_contrast", "#2F343B")).name(),
+    )
     pal = QPalette()
-    accent_c = _normalized_color(accent)
-    light_surface = _normalized_color(settings.get("light_surface", "#FFFFFF"))
-    light_contrast = _normalized_color(settings.get("light_contrast", "#2F343B"))
-    if dark:
-        pal.setColor(QPalette.Window, QColor("#1b1c1f"))
-        pal.setColor(QPalette.Base, QColor("#222428"))
-        pal.setColor(QPalette.AlternateBase, QColor("#292b30"))
-        pal.setColor(QPalette.Text, QColor("#eef0f3"))
-        pal.setColor(QPalette.WindowText, QColor("#eef0f3"))
-        pal.setColor(QPalette.Button, QColor("#292b30"))
-        pal.setColor(QPalette.ButtonText, QColor("#eef0f3"))
-        pal.setColor(QPalette.Highlight, accent_c)
-        pal.setColor(QPalette.HighlightedText, QColor("#17181b"))
-        pal.setColor(QPalette.ToolTipBase, QColor("#292b30"))
-        pal.setColor(QPalette.ToolTipText, QColor("#eef0f3"))
-    else:
-        pal.setColor(QPalette.Window, light_surface)
-        pal.setColor(QPalette.Base, light_surface)
-        pal.setColor(QPalette.AlternateBase, light_surface.lighter(97))
-        pal.setColor(QPalette.Text, light_contrast)
-        pal.setColor(QPalette.WindowText, light_contrast)
-        pal.setColor(QPalette.Button, light_surface.darker(3))
-        pal.setColor(QPalette.ButtonText, light_contrast)
-        pal.setColor(QPalette.Highlight, accent_c)
-        pal.setColor(QPalette.HighlightedText, QColor("#ffffff"))
-        pal.setColor(QPalette.ToolTipBase, QColor("#ffffff"))
-        pal.setColor(QPalette.ToolTipText, QColor("#2f343b"))
+    for role, key in (
+        (QPalette.Window, "window"), (QPalette.WindowText, "text"),
+        (QPalette.Base, "base"), (QPalette.AlternateBase, "alt"), (QPalette.Text, "text"),
+        (QPalette.Button, "button"), (QPalette.ButtonText, "text"),
+        (QPalette.ToolTipBase, "tooltip"), (QPalette.ToolTipText, "text"),
+        (QPalette.Highlight, "accent"), (QPalette.HighlightedText, "on_accent"),
+        # Mid é a cor das bordas que o código antigo pede como palette(mid).
+        (QPalette.Mid, "border_strong"),
+    ):
+        pal.setColor(role, QColor(t[key]))
     # Cores desabilitadas também acompanham o tema para evitar resíduos do
     # esquema anterior após a troca ao vivo.
-    if dark:
-        pal.setColor(QPalette.Disabled, QPalette.Text, QColor("#777B83"))
-        pal.setColor(QPalette.Disabled, QPalette.WindowText, QColor("#777B83"))
-        pal.setColor(QPalette.Disabled, QPalette.ButtonText, QColor("#777B83"))
-    else:
-        pal.setColor(QPalette.Disabled, QPalette.Text, QColor("#9A9EA5"))
-        pal.setColor(QPalette.Disabled, QPalette.WindowText, QColor("#9A9EA5"))
-        pal.setColor(QPalette.Disabled, QPalette.ButtonText, QColor("#9A9EA5"))
+    for role in (QPalette.Text, QPalette.WindowText, QPalette.ButtonText):
+        pal.setColor(QPalette.Disabled, role, QColor(t["disabled"]))
+    placeholder = getattr(QPalette, "PlaceholderText", None)
+    if placeholder is not None:
+        pal.setColor(placeholder, QColor(_mix_hex(t["base"], t["text"], 0.45)))
     # Fusion respeita integralmente QPalette em Windows; o estilo nativo pode
     # conservar partes do tema anterior em widgets complexos.
     try:
@@ -1447,26 +1574,7 @@ def _apply_application_palette(app: QApplication, dark: bool, accent: str, setti
     except Exception:
         pass
     app.setPalette(pal)
-    bg = QColor(pal.color(QPalette.Window)).name()
-    base = QColor(pal.color(QPalette.Base)).name()
-    text = QColor(pal.color(QPalette.Text)).name()
-    button = QColor(pal.color(QPalette.Button)).name()
-    mid = QColor(pal.color(QPalette.Mid)).name()
-    app.setStyleSheet(f"""
-        QWidget {{ background: {bg}; color: {text}; }}
-        QToolTip {{ padding: 5px 7px; border: 1px solid {mid}; border-radius: 4px; background: {button}; color: {text}; }}
-        QGroupBox {{ font-weight: 600; }}
-        QTabBar::tab {{ padding: 7px 12px; }}
-        QScrollBar:vertical {{ width: 6px; background: transparent; margin: 0; }}
-        QScrollBar:horizontal {{ height: 6px; background: transparent; margin: 0; }}
-        QScrollBar::add-line, QScrollBar::sub-line {{ width: 0px; height: 0px; border: 0; background: transparent; }}
-        QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; border: 0; }}
-        QScrollBar::handle:vertical, QScrollBar::handle:horizontal {{ background: {mid}; border-radius: 3px; min-height: 28px; min-width: 28px; }}
-        QTableWidget, QListWidget {{ gridline-color: {mid}; background: {base}; }}
-        QHeaderView::section {{ padding: 6px; font-weight: 600; background: {button}; color: {text}; }}
-        QPushButton {{ padding: 6px 10px; }}
-        QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{ padding: 4px 6px; background: {base}; color: {text}; }}
-    """)
+    app.setStyleSheet(_build_app_stylesheet(t))
 
 def _asset_path(name: str) -> Path:
     """Localiza um recurso distribuído junto ao Automation Studio."""
