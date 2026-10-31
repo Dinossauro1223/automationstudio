@@ -1,0 +1,4 @@
+# Scripts do Windows precisam de fim de linha CRLF: com LF o cmd.exe pode falhar em 'goto' e rótulos.
+# Com esta regra o checkout grava CRLF em qualquer sistema (e em clone novo), e o repositório guarda LF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
