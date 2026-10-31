@@ -445,7 +445,23 @@ EDI = "automationstudio/command_editor.py"
 ATV = "automationstudio/ativacao.py"
 ATU = "automationstudio/ativacao_ui.py"
 JAN = "automationstudio/main_window.py"
+CTL = "automationstudio/controle_ui.py"
 GOLD = "tests/data/golden/"
+
+
+def _motor_guardado(texto: str) -> str:
+    """O controlador guarda `janela.engine` ao ser criado e passa a usar a cópia (uma referência que ficaria velha)."""
+    guardado = texto.replace("        self.janela = janela\n", "        self.janela = janela\n        self._motor = janela.engine\n", 1)
+    return guardado.replace("self.janela.engine.", "self._motor.")
+
+
+def _controle_depois_dos_atalhos(texto: str) -> str:
+    """Tira `self.controle = ...` de onde está e o põe logo depois do primeiro `self._register_all_hotkeys()` (o de `__init__`)."""
+    criacao = "        self.controle = ControladorDeExecucao(self)\n"
+    sem = texto.replace(criacao, "", 1)
+    alvo = "        self._register_all_hotkeys()\n"
+    i = sem.find(alvo)
+    return sem if i < 0 else sem[: i + len(alvo)] + criacao + sem[i + len(alvo):]
 
 
 def catalogo() -> list[Mutante]:
@@ -526,7 +542,8 @@ def catalogo() -> list[Mutante]:
     add(_m("MOT31", "motor", "stop() com o motor ocioso tenta mudar de estado", "parar com o motor ocioso não faz nada",
            IS, L("        if self.state.state in (State.IDLE,):", "            return"), L("        if False:", "            return")))
     add(_m("MOT32", "motor", "pausar fora de execução levanta transição inválida", "pausa e retomada fora de execução são ignoradas",
-           IS, L("        if self.state.state == State.RUNNING:", "            self.state.transition_to(State.PAUSED)", "            self._pause_event.clear()"),
+           IS, L("        if self.state.state != State.RUNNING:", "            return False", "        try:", "            self.state.transition_to(State.PAUSED)",
+                 "        except core.InvalidStateTransition:", "            return False", "        self._pause_event.clear()"),
            L("        self.state.transition_to(State.PAUSED)", "        self._pause_event.clear()")))
     add(_m("MOT33", "motor", "o sono interrompível ignora o pedido de parada", "parada durante uma espera por atraso",
            IS, L("        while self._clock.monotonic() < end:", "            if self._stop_requested.is_set():", "                return False"), "        while self._clock.monotonic() < end:"))
@@ -833,6 +850,64 @@ def catalogo() -> list[Mutante]:
     add(_m("ATV60", "ativacao", "ler a preferência de ativação devolve o dicionário interno, não uma cópia",
            "quem altera o resultado não altera a configuração", PRJ,
            "        return copy.deepcopy(saved) if isinstance(saved, dict) else {}", "        return saved if isinstance(saved, dict) else {}"))
+
+
+    # ---------------------------------------------------------------------------------------------- pausar e continuar pelas teclas (achado 2.11)
+    add(_m("PAU01", "motor", "pausar com sucesso diz que não pausou", "PAU-01: `pause()` devolve True quando pausou (a janela só avisa o usuário se mudou)",
+           IS, L("        self._pause_event.clear()", "        return True"), L("        self._pause_event.clear()", "        return False")))
+    add(_m("PAU02", "motor", "continuar sem pausa troca o estado de parado para executando (e não há thread)", "PAU-03: `resume()` só age em PAUSADO",
+           IS, L("        if self.state.state != State.PAUSED:", "            return False", "        try:", "            self.state.transition_to(State.RUNNING)"),
+           L("        try:", "            self.state.transition_to(State.RUNNING)")))
+    add(_m("PAU03", "motor", "pausar no instante em que a execução termina levanta transição inválida", "PAU-04: a tecla vem de outra thread e perde a corrida sem erro",
+           IS, L("            self.state.transition_to(State.PAUSED)", "        except core.InvalidStateTransition:"),
+           L("            self.state.transition_to(State.PAUSED)", "        except KeyError:")))
+    add(_m("PAU04", "motor", "continuar no instante em que a execução é parada levanta transição inválida", "PAU-04",
+           IS, L("            self.state.transition_to(State.RUNNING)", "        except core.InvalidStateTransition:"),
+           L("            self.state.transition_to(State.RUNNING)", "        except KeyError:")))
+    add(_m("PAU05", "motor", "a pausa que perdeu a corrida diz que pausou", "PAU-04: `pause()` devolve False quando a execução já tinha acabado",
+           IS, L("        except core.InvalidStateTransition:", "            return False", "        self._pause_event.clear()"),
+           L("        except core.InvalidStateTransition:", "            return True", "        self._pause_event.clear()")))
+    add(_m("PAU06", "motor", "continuar muda o estado mas não acorda a thread do motor", "PAU-02: a retomada segue do ponto onde parou",
+           IS, L("        self._pause_event.set()", "        return True"), L("        pass", "        return True")))
+    add(_m("PAU07", "motor", "pausar muda o estado mas não para a thread do motor", "PAU-01: nenhuma entrada nova durante a pausa",
+           IS, L("        self._pause_event.clear()", "        return True"), L("        pass", "        return True")))
+    add(_m("PAU08", "motor", "pausar solta as teclas que estavam apertadas", "o que NÃO muda: a pausa mantém o que estava apertado (md/ESPEC_PAUSA_TECLAS.md)",
+           IS, L("        self._pause_event.clear()", "        return True"), L("        self._pause_event.clear()", "        self._release_all()", "        return True")))
+
+    add(_m("PAU09", "controle", "F9 diz que pausou mesmo quando não havia nada para pausar", "PAU-03: sem execução, sem mensagem",
+           CTL, L("        if not self.janela.engine.pause():", "            return False"), "        self.janela.engine.pause()"))
+    add(_m("PAU10", "controle", "F10 diz que continuou mesmo quando não havia pausa", "PAU-03: sem pausa, sem mensagem",
+           CTL, L("        if not self.janela.engine.resume():", "            return False"), "        self.janela.engine.resume()"))
+    add(_m("PAU11", "controle", "a mensagem de pausa cita sempre F10", "PAU-01: cita a tecla de continuar que está configurada",
+           CTL, '            texto = f"Automação pausada. Aperte {tecla} para continuar."', '            texto = "Automação pausada. Aperte F10 para continuar."'))
+    add(_m("PAU12", "controle", "a mensagem manda apertar uma tecla de continuar que não está ativa", "PAU-01: tecla inválida ou repetida não é citada",
+           CTL, "        if tecla:", "        if True:"))
+    add(_m("PAU13", "controle", "a mensagem cita a tecla de pausar, não a de continuar", "PAU-01",
+           CTL, 'ACAO_DE_CONTINUAR = "control:resume"', 'ACAO_DE_CONTINUAR = "control:pause"'))
+    add(_m("PAU14", "controle", "a mensagem de pausa fica na barra para sempre (prazo 0)", "a mensagem não sobra depois de a automação ser parada",
+           CTL, "PRAZO_DA_MENSAGEM_PAUSADA = 8000", "PRAZO_DA_MENSAGEM_PAUSADA = 0"))
+    add(_m("PAU15", "controle", "pausar devolve False mesmo tendo pausado", "PAU-01: o retorno diz se mudou",
+           CTL, L("        self.janela.status_bar.showMessage(texto, PRAZO_DA_MENSAGEM_PAUSADA)", "        return True"),
+           L("        self.janela.status_bar.showMessage(texto, PRAZO_DA_MENSAGEM_PAUSADA)", "        return False")))
+    add(_m("PAU16", "controle", "continuar não diz que continuou", "PAU-02: a mensagem de retomada",
+           CTL, '        self.janela.status_bar.showMessage("Automação retomada.", PRAZO_DA_MENSAGEM_RETOMADA)', "        pass"))
+    add(_m("PAU17", "controle", "a tecla de continuar é lida direto da configuração, sem conferir se está ativa", "PAU-01: o plano de atalhos é quem diz o que está ativo",
+           CTL, L("        registro = next((r for r in self.janela.ativacao.plano().registros if r.acao == ACAO_DE_CONTINUAR), None)",
+                  '        return registro.tecla if registro is not None else ""'),
+           '        return self.janela.settings.get_control_hotkeys().get("resume", "")'))
+    add(_m("PAU18", "controle", "o controlador usa o motor que a janela tinha ao ser criado, não o de agora", "o controlador lê o motor na hora, como o da ativação lê as configurações",
+           CTL, funcao=_motor_guardado))
+
+    add(_m("PAU19", "controle", "F9 chama continuar e não pausar", "PAU-05: cada tecla chama o seu método do controlador",
+           JAN, "            self.controle.pausar()  # F9", "            self.controle.retomar()  # F9"))
+    add(_m("PAU20", "controle", "a janela perde o ramo da tecla de pausar (a tecla chega e some)", "PAU-05: toda ação de controle registrada tem ramo",
+           JAN, '        elif action_id == "control:pause":\n', '        elif action_id == "control:pausar":\n'))
+    add(_m("PAU21", "controle", "a janela perde o ramo da tecla de continuar (a tecla chega e some)", "PAU-05",
+           JAN, '        elif action_id == "control:resume":\n', '        elif action_id == "control:retomar":\n'))
+    add(_m("PAU22", "controle", "a janela não cria o controlador de execução", "PAU-05: `self.controle` existe antes dos atalhos",
+           JAN, "        self.controle = ControladorDeExecucao(self)", "        self.controle = None"))
+    add(_m("PAU23", "controle", "o controlador é criado depois de os atalhos serem registrados", "PAU-05: um disparo cedo demais acharia a janela sem controlador",
+           JAN, funcao=_controle_depois_dos_atalhos))
 
     # ---------------------------------------------------------------------------------------------- botões laterais (D1)
     add(_m("BTN01", "botoes", "o monitor volta a trocar X1 e X2 (a troca em dobro do 25.3)", "decisão D1: só o mouse virtual troca os nomes",
@@ -1423,7 +1498,7 @@ def catalogo() -> list[Mutante]:
            "o pacote não sai de um bloco finally",
            "automationstudio/vision.py", acrescentar=L("def _finally_com_retorno():", "    try:", "        return 1", "    finally:", "        return 2")))
     add(_m("EST13", "estatico", "a parada de emergência perde o ramo em `_on_hotkey_triggered` (a tecla chega e some)",
-           "o verificador das lacunas de ligação enxerga os ramos que existem (senão o xfail do achado 2.11 falharia por qualquer motivo)",
+           "o verificador de ligação (static/test_ligacao_controle.py) enxerga os ramos que existem (senão os testes dele falhariam, ou passariam, por qualquer motivo)",
            JAN, '        elif action_id == "control:emergency":\n', '        elif action_id == "control:emergencia":\n'))
     return c
 
@@ -1436,7 +1511,7 @@ def main(argv=None) -> int:
     ap.add_argument("--tabela", action="store_true", help="imprime a tabela dos defeitos em Markdown e sai")
     ap.add_argument("--validar", action="store_true", help="só confere que cada defeito se aplica ao código, sem rodar testes")
     ap.add_argument("--so", default="", help="ids separados por vírgula")
-    ap.add_argument("--area", default="", help="só uma área (motor, win32, pynput, atalhos, botoes, gravador, modelo, persistencia, editor, redes, estatico)")
+    ap.add_argument("--area", default="", help="só uma área (motor, win32, pynput, atalhos, botoes, gravador, modelo, persistencia, editor, redes, estatico, ativacao, controle)")
     ap.add_argument("--paralelo", type=int, default=min(2, os.cpu_count() or 1), help="rodadas simultâneas (padrão: 2)")
     ap.add_argument("--relatorio", default="", help="arquivo do relatório (padrão: logs/mutacoes_last_run.txt)")
     ap.add_argument("--manter", action="store_true", help="não apaga as cópias (para investigar um defeito)")

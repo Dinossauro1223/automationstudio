@@ -377,7 +377,7 @@ def test_o_catalogo_tem_ids_unicos_areas_conhecidas_e_explicacao():
     ids = [m.id for m in catalogo]
     assert len(catalogo) >= 150 and len(ids) == len(set(ids))
     areas = {"motor", "win32", "pynput", "atalhos", "botoes", "gravador", "modelo", "persistencia", "editor", "redes", "estatico",
-             "ativacao"}
+             "ativacao", "controle"}
     assert {m.area for m in catalogo} <= areas and {m.area for m in catalogo} == areas, "toda área tem defeitos"
     assert all(m.descricao and m.protege for m in catalogo)
     assert {m.modo for m in catalogo} == {mut.LOGICA, mut.INTERFACE}

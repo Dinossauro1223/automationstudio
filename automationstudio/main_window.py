@@ -9,6 +9,7 @@ from .core import *
 from .input_system import *
 from .project import *
 from .ativacao_ui import ControladorAtivacao
+from .controle_ui import ControladorDeExecucao
 from .tutorial import *
 from .overlays import *
 from .command_editor import *
@@ -186,6 +187,8 @@ class MainWindow(QMainWindow):
         # 25.8: ativação por mapa (só nesta sessão / sempre / desativado) e conferência de conflitos de tecla. Lê as
         # configurações e os mapas na hora, por isso já pode existir aqui; o que decide é aplicado em `_register_all_hotkeys`.
         self.ativacao = ControladorAtivacao(self)
+        # As teclas de pausar e continuar a automação (F9 e F10): o disparo chega em `_on_hotkey_triggered` e vai para aqui.
+        self.controle = ControladorDeExecucao(self)
 
         self.keyboard_overlay: KeyboardOverlay | None = None
         self.mouse_overlay: MouseOverlay | None = None
@@ -1621,6 +1624,10 @@ class MainWindow(QMainWindow):
                 self._run_map_via_hotkey(automation_map)
         elif action_id == "control:emergency":
             self._on_emergency()
+        elif action_id == "control:pause":
+            self.controle.pausar()  # F9 (achado 2.11: o disparo era registrado e sumia)
+        elif action_id == "control:resume":
+            self.controle.retomar()  # F10
         elif action_id == "record:toggle":
             self._toggle_recording()
         elif action_id == "record:cancel":

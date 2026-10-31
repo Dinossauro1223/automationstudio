@@ -59,14 +59,14 @@ Para olhar um teste só: `Rodar_Testes.bat completo -k timeline_abre` (ele roda 
 
 | Pasta | O que protege |
 |---|---|
-| `unit/` | Modelo (`core`, `conditions`, `vision`): validação, linha do tempo, operações de edição (mover, reordenar, copiar, colar, excluir, exportar, importar), máquina de estados, relógio virtual, leitor de mapas antigos, a ativação por mapa (25.8: a lógica de `ativacao.py` e o controlador de `ativacao_ui.py`, com uma janela de mentira em `testsupport/janela_falsa.py`), e as próprias ferramentas de teste (atalho, verificador de mutações, catraca de cobertura). |
+| `unit/` | Modelo (`core`, `conditions`, `vision`): validação, linha do tempo, operações de edição (mover, reordenar, copiar, colar, excluir, exportar, importar), máquina de estados, relógio virtual, leitor de mapas antigos, a ativação por mapa (25.8: a lógica de `ativacao.py` e o controlador de `ativacao_ui.py`, com uma janela de mentira em `testsupport/janela_falsa.py`), o controlador de pausar e continuar pelas teclas F9 e F10 (`controle_ui.py`, com o motor de verdade e a mesma janela de mentira), e as próprias ferramentas de teste (atalho, verificador de mutações, catraca de cobertura). |
 | `engine/` | Motor de execução (comandos, tempo, pausa, parada, barreiras de espera), gravador, atalhos globais, monitor de entrada, botões laterais do mouse. Tudo com relógio virtual: um mapa de 1 min roda em milissegundos. |
 | `contract/` | O mesmo contrato rodado em cada backend de entrada (Mock, pynput falso, Win32 com `user32` falso): nomes de teclas e botões, soltar tudo, rolagem, texto com acento. |
 | `persistence/` | Banco SQLite de mapas e configurações, histórico de desfazer, leitor tolerante do formato v1, importação de JSON antigo, vários acessos ao mesmo banco. |
 | `regression/` | **Um teste por defeito já corrigido.** `test_ponto1_reproducao.py` (itens 1.01 a 1.17 da 25.3) e `test_ponto2_achados.py` (2.09 e 2.10). |
 | `scenarios/` | Fluxos inteiros (mapa → linha do tempo → motor → backend) comparados com arquivos de referência em `data/golden/`. Inclui os 3 mapas reais que você enviou. |
-| `gui/` | Editor de comandos, janela principal e a faixa de ativação por mapa. Roda com o PySide6 de verdade; sem ele, o editor e a faixa rodam no dublê de widgets e a janela principal é pulada. Os testes da janela principal são `isolado` (acima). |
-| `static/` | Invariantes do código-fonte (nome inexistente, método duplicado, sinal sem `connect`, `\n` literal, módulo removido do Python, saída de `finally`, versão única, `.bat` com CRLF, instalador × `requirements.txt`, a ligação da ativação por mapa com a janela principal, as lacunas de ligação conhecidas...) e as **catracas** (abaixo). Cada invariante tem um controle negativo (um defeito plantado que ela TEM de acusar). |
+| `gui/` | Editor de comandos, janela principal, a faixa de ativação por mapa e as teclas de pausar e continuar na janela. Roda com o PySide6 de verdade; sem ele, o editor e a faixa rodam no dublê de widgets e a janela principal é pulada. Os testes da janela principal são `isolado` (acima). |
+| `static/` | Invariantes do código-fonte (nome inexistente, método duplicado, sinal sem `connect`, `\n` literal, módulo removido do Python, saída de `finally`, versão única, `.bat` com CRLF, instalador × `requirements.txt`, a ligação da ativação por mapa e a das teclas de controle (F9, F10...) com a janela principal...) e as **catracas** (abaixo). Cada invariante tem um controle negativo (um defeito plantado que ela TEM de acusar). |
 | `e2e_windows/` | O que só o Windows de verdade responde. Rodam sempre em modo **simulado**; em modo **real** só com `Rodar_Testes.bat windows`. |
 | `data/` | `legacy_maps.json.gz` (os 3 mapas reais) e `golden/` (8 resultados de referência). |
 | `testsupport/` | Ferramentas: relógio virtual, fakes, helpers, dublês do Qt, diagnóstico de travamento (`diagnostico_qt.py`), verificador de mutações, atalho de execução, catraca de cobertura. Não são testes. |
@@ -186,9 +186,9 @@ A rodada inteira (355 defeitos) leva cerca de 57 minutos (duas cópias testadas 
 
 Ao melhorar um número, baixe a constante na mesma alteração.
 
-**Catraca de cobertura.** `Rodar_Testes.bat cobertura` mede linhas e ramos com o `coverage.py`, agrupa por parte (`core`, `conditions`, `project`, `input_system`, `vision`, `ativacao`, `interface`) e compara com `tests/coverage_baseline.json`. **Esse arquivo não vem no pacote:** o baseline precisa ser medido na sua máquina, com o PySide6 de verdade; a primeira rodada o grava e as seguintes comparam. Uma queda reprova (código 1) e **não** regrava o baseline; para subir a catraca depois de uma melhora, ou para aceitar uma queda de propósito, rode `py tests\testsupport\catraca_cobertura.py --gravar`. Um baseline gravado com o dublê de widgets não serve de régua para o Qt de verdade (a interface cobre muito mais com ele): grave de novo se mudar de ambiente.
+**Catraca de cobertura.** `Rodar_Testes.bat cobertura` mede linhas e ramos com o `coverage.py`, agrupa por parte (`core`, `conditions`, `project`, `input_system`, `vision`, `ativacao`, `controle`, `interface`) e compara com `tests/coverage_baseline.json`. **Esse arquivo não vem no pacote:** o baseline precisa ser medido na sua máquina, com o PySide6 de verdade; a primeira rodada o grava e as seguintes comparam. Uma queda reprova (código 1) e **não** regrava o baseline; para subir a catraca depois de uma melhora, ou para aceitar uma queda de propósito, rode `py tests\testsupport\catraca_cobertura.py --gravar`. Um baseline gravado com o dublê de widgets não serve de régua para o Qt de verdade (a interface cobre muito mais com ele): grave de novo se mudar de ambiente.
 
-## Defeitos conhecidos (6 testes `xfail` estritos)
+## Defeitos conhecidos (5 testes `xfail` estritos)
 
 São comportamentos desejados que o código ainda **não** tem. Quando um deles for corrigido o teste passa, o pytest reclama (`strict`) e o marcador sai.
 
@@ -197,7 +197,8 @@ São comportamentos desejados que o código ainda **não** tem. Quando um deles 
 | `persistence/test_project_manager.py::test_json_legado_nao_ressuscita_mapa_apagado` | A migração dos JSON antigos roda sempre que o banco está vazio: apagar o último mapa e reabrir traz de volta os arquivos antigos da pasta (achado 2.03). | Ponto 3 |
 | `persistence/test_project_manager.py::test_carregar_por_nome_com_ponto_no_nome` | `load_map("Mapa v1.2")` perde o que vem depois do último ponto (achado 2.04; a interface não usa essa rota). | Ponto 3 |
 | `unit/test_validation_gaps.py` (3 testes) | A validação não confere o nome do botão do mouse, aceita "abrir aplicativo" sem alvo e aceita `repeat_count` menor que -1. | Ponto 3 (leitor v2) |
-| `static/test_lacunas_de_ligacao.py::test_as_teclas_de_pausar_e_continuar_deveriam_pausar_e_continuar_o_motor` | As teclas F9 e F10 (pausar e continuar) são registradas e aparecem em Configurações, mas `_on_hotkey_triggered` não tem ramo para elas e a janela nunca chama `engine.pause()` nem `resume()` (achado 2.11, confirmado pela leitura do código; o motor em si pausa e continua, é testado). | Ponto à parte, depende de decisão (`md/ENTREGA_25_8.md`) |
+
+*O sexto, o das teclas F9 e F10 (achado 2.11), foi corrigido: o teste saiu desta lista e virou o guarda permanente `static/test_ligacao_controle.py` (`md/ESPEC_PAUSA_TECLAS.md`).*
 
 ## O que a suíte não prova
 
