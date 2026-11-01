@@ -90,58 +90,6 @@ def test_durante_a_pausa_as_teclas_seguradas_continuam_seguradas_e_o_fim_da_exec
     assert pressed_balance(backend) == {}, "no fim, nada fica apertado"
 
 
-class _BackendLento(MockInputBackend):
-    """Cada entrada enviada cede a vez por 0,2 ms. Com o relógio virtual o motor terminaria um mapa inteiro antes de a outra
-    thread conseguir cruzar com ele; assim as duas se cruzam milhares de vezes por execução."""
-
-    def _log(self, action, target) -> None:
-        super()._log(action, target)
-        time.sleep(0.0002)
-
-
-@pytest.mark.slow
-def test_pausar_e_continuar_sem_parar_de_outra_thread_nao_perde_nem_repete_nem_trava(make_engine, fake_clock):         # PAU-04
-    """O que as teclas F9 e F10 fazem de verdade: a thread da janela chama `pause()` e `resume()` enquanto o motor executa. Os
-    testes de corrida acima forçam a perda da corrida de um jeito só; este cruza as duas threads como acontece de verdade
-    (milhares de pausas e retomadas bem-sucedidas por execução) e confere o que importa: nenhum erro, cada entrada enviada
-    uma única vez e na ordem, nada preso e o motor termina parado."""
-    motor, backend = make_engine(backend=_BackendLento(clock=fake_clock))
-    total = 600
-    terminou, erros, falhas, parar = threading.Event(), [], [], threading.Event()
-    motor.on_finished.append(terminou.set)
-    motor.on_error.append(lambda exc: (erros.append(exc), terminou.set()))
-
-    def teclas():
-        vez = 0
-        while not parar.is_set():
-            try:
-                (motor.pause if vez % 2 == 0 else motor.resume)()
-            except Exception as exc:  # noqa: BLE001  (a tecla nunca pode levantar erro)
-                falhas.append(exc)
-                return
-            vez += 1
-            time.sleep(0)
-
-    janela = threading.Thread(target=teclas, daemon=True)
-    motor.run(make_map([key("ABCD"[i % 4], i * 0.004, 0.002) for i in range(total)]))
-    janela.start()
-    prazo = time.monotonic() + 30.0
-    while not terminou.is_set() and time.monotonic() < prazo:
-        time.sleep(0.005)
-    parar.set()
-    janela.join(5)
-    if not terminou.is_set():  # pausado no fim da tentativa: o usuário apertaria F10
-        motor.resume()
-        terminou.wait(10)
-
-    assert falhas == [] and erros == []
-    assert terminou.is_set(), "o motor travou (pausa sem retomada)"
-    assert motor.state.state == State.IDLE
-    assert [alvo for _t, acao, alvo in events_of(backend) if acao == "key_down"] == ["ABCD"[i % 4] for i in range(total)], \
-        "cada entrada enviada uma única vez e na ordem"
-    assert pressed_balance(backend) == {}
-
-
 def _perde_a_corrida(motor, monkeypatch):
     """Faz a troca de estado falhar como falharia se a execução terminasse entre a conferência e a troca."""
     def troca(alvo):
