@@ -520,6 +520,48 @@ def test_descartar_janelas_para_fecha_destroi_esvazia_a_fila_e_coleta_o_lixo(mon
     assert janelas == [], "a lista é esvaziada: o teste não guarda referência às janelas destruídas"
 
 
+def test_encerrar_o_teste_de_janela_esvazia_a_fila_e_so_depois_coleta_o_lixo(monkeypatch):
+    # Todo teste de janela termina assim (fixture `gui`): o lixo dele é solto AGORA. Sem isto o coletor automático o solta no
+    # meio de um teste posterior, e no Windows o Qt abortava o processo nessa hora (função virtual pura no Qt6Core, 01/11/2026).
+    ordem, recebido = [], {}
+
+    def esvaziar(app=None, **opcoes):
+        ordem.append("esvazia a fila")
+        recebido.update(app=app, **opcoes)
+
+    monkeypatch.setattr(gh, "esvaziar_fila", esvaziar)
+    app = object()
+    gh.encerrar_teste_de_janela(app, coletar=lambda: ordem.append("gc"), dormir=None)
+    assert ordem == ["esvazia a fila", "gc"]
+    assert recebido == {"app": app, "dormir": None}, "o aplicativo e as opções chegam à fila"
+
+
+def test_encerrar_o_teste_de_janela_coleta_o_lixo_mesmo_quando_esvaziar_a_fila_falha(monkeypatch):
+    ordem = []
+
+    def falha(app=None, **opcoes):
+        raise RuntimeError("a fila não esvaziou")
+
+    monkeypatch.setattr(gh, "esvaziar_fila", falha)
+    with pytest.raises(RuntimeError, match="a fila não esvaziou"):
+        gh.encerrar_teste_de_janela(coletar=lambda: ordem.append("gc"))
+    assert ordem == ["gc"], "a falha da fila não pula a coleta (e também não é engolida)"
+
+
+def test_a_fixture_gui_solta_o_lixo_do_teste_com_o_vigia_ainda_ligado_e_desliga_o_vigia_mesmo_se_a_limpeza_falhar():
+    import ast
+    import pathlib
+    fonte = (pathlib.Path(__file__).resolve().parents[1] / "conftest.py").read_text(encoding="utf-8")
+    fixture = next(n for n in ast.parse(fonte).body if isinstance(n, ast.FunctionDef) and n.name == "gui")
+    posicao = next(i for i, n in enumerate(fixture.body) if isinstance(n, ast.Expr) and isinstance(n.value, ast.Yield))
+    depois = fixture.body[posicao + 1:]
+    texto = "\n".join(ast.unparse(n) for n in depois)
+    assert "gui_helpers.encerrar_teste_de_janela()" in texto, "a fixture `gui` solta o lixo do teste ao terminar"
+    assert texto.index("encerrar_teste_de_janela") < texto.index("encerrar_atual"), "a limpeza roda com o vigia ainda ligado"
+    assert any(isinstance(n, ast.Try) and any("diagnostico_qt.encerrar_atual()" in ast.unparse(f) for f in n.finalbody)
+               for n in depois), "o vigia é desligado mesmo se a limpeza falhar (bloco `finally`)"
+
+
 # ------------------------------------------------------------------------------------------------ a fixture `gui` e o vigia
 def test_a_fixture_gui_liga_o_vigia_do_teste_de_janela(gui):
     vigia = dq.atual()
