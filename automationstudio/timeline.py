@@ -90,11 +90,11 @@ class TimelineCanvas(QWidget):
 
     def _apply_theme_colors(self) -> None:
         if self._dark_theme:
-            self._bg = QColor('#141416'); self._row_alt = QColor('#19191c')
-            self._grid = QColor('#26262a'); self._grid_strong = QColor('#3a3a3e')
-            self._ruler_bg = QColor('#0f0f11'); self._label = QColor('#c7c7cc')
-            self._label_disabled = QColor('#6a6a6e'); self._ungrouped = QColor('#5a5a5e')
-            self._ungrouped_border = QColor('#8a8a8f')
+            self._bg = QColor('#14171c'); self._row_alt = QColor('#191d23')
+            self._grid = QColor('#242a32'); self._grid_strong = QColor('#343c47')
+            self._ruler_bg = QColor('#1a1d23'); self._label = QColor('#c2c9d3')
+            self._label_disabled = QColor('#5f6977'); self._ungrouped = QColor('#4a525e')
+            self._ungrouped_border = QColor('#7d8796')
         else:
             self._bg = QColor('#ffffff'); self._row_alt = QColor('#f6f7f9')
             self._grid = QColor('#e4e7eb'); self._grid_strong = QColor('#cbd0d7')
