@@ -83,6 +83,7 @@ jobs:
         env:
           PYTHONUTF8: "1"
           QT_QPA_PLATFORM: offscreen
+          PYTEST_ADDOPTS: "-v"
         run: python tests/testsupport/rodar_testes.py completo
       - name: Guardar os logs
         if: always()
