@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variante: [a_basico_sem_captura, b_gc_com_estresse, c_gc_sem_estresse, d_sem_gc_automatico]
+        variante: [f0_rodar_testes_exato, v1_rodar_com_s, v2_rodar_com_gcinfo, v6_rodar_sem_gc, v7_rodar_gc_por_teste, v3_direto_coleta_cada, v4_direto_coleta_primeiro_dialogo]
     steps:
       - uses: actions/checkout@v4
       - name: Versão do Python (python_version.txt)
@@ -41,12 +41,18 @@ jobs:
           VARIANTE: ${{ matrix.variante }}
         run: |
           set +e
-          EST="tests/engine/test_engine_control.py::test_pausar_e_continuar_sem_parar_de_outra_thread_nao_perde_nem_repete_nem_trava"
-          BASE="python -m pytest -v -s -o cache_dir=logs/.pytest_cache --tb=line --timeout=180 -m not_isolado_placeholder"
+          mkdir -p logs
+          COMUM='-q -o cache_dir=logs/.pytest_cache --tb=line --timeout=180 -m "not isolado"'
           case "$VARIANTE" in
-            a*) python -m pytest -v -s -o cache_dir=logs/.pytest_cache --tb=line --timeout=180 -m "not isolado" ;;
-            b*) python -m pytest -v -s -p zz_gcprobe -o cache_dir=logs/.pytest_cache --tb=line --timeout=180 -m "not isolado" ;;
-            c*) python -m pytest -v -s -p zz_gcprobe -o cache_dir=logs/.pytest_cache --tb=line --timeout=180 -m "not isolado" --deselect "$EST" ;;
-            d*) python -m pytest -v -s -p zz_nogc -o cache_dir=logs/.pytest_cache --tb=line --timeout=180 -m "not isolado" ;;
+            f0*) python tests/testsupport/rodar_testes.py completo ;;
+            v1*) PYTEST_ADDOPTS="-s" python tests/testsupport/rodar_testes.py completo ;;
+            v2*) PYTEST_ADDOPTS="-p zz_gcinfo" python tests/testsupport/rodar_testes.py completo ;;
+            v6*) PYTEST_ADDOPTS="-p zz_nogc" python tests/testsupport/rodar_testes.py completo ;;
+            v7*) PYTEST_ADDOPTS="-p zz_gcprobe" python tests/testsupport/rodar_testes.py completo ;;
+            v3*) AS_DIAG_COLETA=cada python -m pytest -v -s -p zz_coleta -o cache_dir=logs/.pytest_cache --tb=line --timeout=180 -m "not isolado" ;;
+            v4*) AS_DIAG_COLETA=primeiro_dialogo python -m pytest -v -s -p zz_coleta -o cache_dir=logs/.pytest_cache --tb=line --timeout=180 -m "not isolado" ;;
           esac
           echo "CODIGO DE SAIDA DA VARIANTE $VARIANTE: $?"
+          echo "---- logs/diag_coleta.txt (fim)"; tail -n 40 logs/diag_coleta.txt 2>/dev/null
+          echo "---- logs/diag_gcinfo.txt (fim)"; tail -n 160 logs/diag_gcinfo.txt 2>/dev/null
+          echo "---- logs/ (arquivos)"; ls -la logs 2>/dev/null
