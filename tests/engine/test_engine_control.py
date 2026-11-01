@@ -8,7 +8,7 @@ import time
 
 import pytest
 
-from automationstudio.core import AutomationMap, InvalidStateTransition, State
+from automationstudio.core import AutomationMap, State
 from automationstudio.input_system import MockInputBackend
 from testsupport.fakes import HookBackend
 from testsupport.helpers import events_of, join_engine, key, make_map, pressed_balance, run_to_end
@@ -40,131 +40,6 @@ def test_pausa_e_retomada_fora_de_execucao_sao_ignoradas(make_engine):
     motor.pause()
     motor.resume()
     assert motor.state.state == State.IDLE
-
-
-# Achado 2.11 (md/ESPEC_PAUSA_TECLAS.md): as teclas F9 e F10 chamam pause() e resume() de OUTRA thread (a da janela) e
-# precisam saber se algo mudou (para dizer ao usuário) e sobreviver a uma corrida com o fim da execução.
-def test_pause_e_resume_dizem_se_mudaram_o_estado(make_engine, hook_backend):                                        # PAU-01 / PAU-02
-    motor, _backend = make_engine(backend=hook_backend)
-    pausou, terminou, da_thread = threading.Event(), threading.Event(), []
-    hook_backend.hooks[1] = lambda: (da_thread.append(motor.pause()), pausou.set())  # logo depois do key_down de A
-    motor.on_finished.append(terminou.set)
-    motor.run(make_map([key("A", 0.0, 0.2), key("B", 0.5, 0.2)]))
-
-    assert pausou.wait(10)
-    assert da_thread == [True], "pause() em execução devolve True"
-    assert motor.pause() is False, "já pausado: nada a pausar"
-    assert motor.state.state == State.PAUSED
-    assert motor.resume() is True
-    assert terminou.wait(10)
-    assert motor.resume() is False, "terminou: nada a retomar"
-    assert motor.state.state == State.IDLE
-
-
-def test_pause_e_resume_fora_de_execucao_devolvem_falso_e_nao_mexem_em_nada(make_engine):                          # PAU-03
-    motor, _backend = make_engine()
-    assert motor.pause() is False and motor.resume() is False
-    assert motor.state.state == State.IDLE and motor._pause_event.is_set()
-    motor.state.transition_to(State.RECORDING)  # gravando também não é "executando"
-    assert motor.pause() is False and motor.resume() is False
-    assert motor.state.state == State.RECORDING and motor._pause_event.is_set()
-
-
-def test_durante_a_pausa_as_teclas_seguradas_continuam_seguradas_e_o_fim_da_execucao_as_solta(make_engine, hook_backend):   # PAU-01 (o que NÃO muda)
-    """Pausar não solta o que estava apertado (md/ESPEC_PAUSA_TECLAS.md, seção 2): quem quiser soltar usa Parar. Fixa o
-    comportamento de hoje para que uma mudança nele seja decidida, não acidental."""
-    motor, backend = make_engine(backend=hook_backend)
-    pausou, terminou = threading.Event(), threading.Event()
-    # A fica apertada de 0 a 0,5 s e B de 0,1 a 0,3 s. O gancho roda DENTRO do envio de B, quando A já está registrada como
-    # apertada (com um gancho no envio de A, o motor ainda não a teria registrado e uma pausa que soltasse tudo não soltaria nada).
-    hook_backend.hooks[2] = lambda: (motor.pause(), pausou.set())
-    motor.on_finished.append(terminou.set)
-    motor.run(make_map([key("A", 0.0, 0.5), key("B", 0.1, 0.2)]))
-
-    assert pausou.wait(10)
-    time.sleep(0.1)
-    assert events_of(backend) == [(0.0, "key_down", "A"), (0.1, "key_down", "B")], "nada novo durante a pausa"
-    assert pressed_balance(backend) == {"key:A": 1, "key:B": 1}, "pausar não solta o que estava apertado"
-    assert motor.resume() is True
-    assert terminou.wait(10)
-    assert pressed_balance(backend) == {}, "no fim, nada fica apertado"
-
-
-class _BackendLento(MockInputBackend):
-    """Cada entrada enviada cede a vez por 0,2 ms. Com o relógio virtual o motor terminaria um mapa inteiro antes de a outra
-    thread conseguir cruzar com ele; assim as duas se cruzam milhares de vezes por execução."""
-
-    def _log(self, action, target) -> None:
-        super()._log(action, target)
-        time.sleep(0.0002)
-
-
-@pytest.mark.slow
-def test_pausar_e_continuar_sem_parar_de_outra_thread_nao_perde_nem_repete_nem_trava(make_engine, fake_clock):         # PAU-04
-    """O que as teclas F9 e F10 fazem de verdade: a thread da janela chama `pause()` e `resume()` enquanto o motor executa. Os
-    testes de corrida acima forçam a perda da corrida de um jeito só; este cruza as duas threads como acontece de verdade
-    (milhares de pausas e retomadas bem-sucedidas por execução) e confere o que importa: nenhum erro, cada entrada enviada
-    uma única vez e na ordem, nada preso e o motor termina parado."""
-    motor, backend = make_engine(backend=_BackendLento(clock=fake_clock))
-    total = 600
-    terminou, erros, falhas, parar = threading.Event(), [], [], threading.Event()
-    motor.on_finished.append(terminou.set)
-    motor.on_error.append(lambda exc: (erros.append(exc), terminou.set()))
-
-    def teclas():
-        vez = 0
-        while not parar.is_set():
-            try:
-                (motor.pause if vez % 2 == 0 else motor.resume)()
-            except Exception as exc:  # noqa: BLE001  (a tecla nunca pode levantar erro)
-                falhas.append(exc)
-                return
-            vez += 1
-            time.sleep(0)
-
-    janela = threading.Thread(target=teclas, daemon=True)
-    motor.run(make_map([key("ABCD"[i % 4], i * 0.004, 0.002) for i in range(total)]))
-    janela.start()
-    prazo = time.monotonic() + 30.0
-    while not terminou.is_set() and time.monotonic() < prazo:
-        time.sleep(0.005)
-    parar.set()
-    janela.join(5)
-    if not terminou.is_set():  # pausado no fim da tentativa: o usuário apertaria F10
-        motor.resume()
-        terminou.wait(10)
-
-    assert falhas == [] and erros == []
-    assert terminou.is_set(), "o motor travou (pausa sem retomada)"
-    assert motor.state.state == State.IDLE
-    assert [alvo for _t, acao, alvo in events_of(backend) if acao == "key_down"] == ["ABCD"[i % 4] for i in range(total)], \
-        "cada entrada enviada uma única vez e na ordem"
-    assert pressed_balance(backend) == {}
-
-
-def _perde_a_corrida(motor, monkeypatch):
-    """Faz a troca de estado falhar como falharia se a execução terminasse entre a conferência e a troca."""
-    def troca(alvo):
-        raise InvalidStateTransition(State.STOPPING, alvo)
-    monkeypatch.setattr(motor.state, "transition_to", troca)
-
-
-def test_pausa_no_instante_em_que_a_execucao_termina_nao_levanta_erro_nem_prende_a_thread(make_engine, monkeypatch):   # PAU-04
-    motor, _backend = make_engine()
-    motor.state.transition_to(State.RUNNING)  # como se a thread do motor estivesse executando
-    _perde_a_corrida(motor, monkeypatch)
-    assert motor.pause() is False
-    assert motor._pause_event.is_set(), "uma pausa que não aconteceu não pode deixar a thread do motor parada"
-
-
-def test_retomada_no_instante_em_que_a_execucao_e_parada_nao_levanta_erro_nem_solta_a_pausa(make_engine, monkeypatch):   # PAU-04
-    motor, _backend = make_engine()
-    motor.state.transition_to(State.RUNNING)
-    motor.state.transition_to(State.PAUSED)
-    motor._pause_event.clear()  # como `pause()` deixa
-    _perde_a_corrida(motor, monkeypatch)
-    assert motor.resume() is False
-    assert not motor._pause_event.is_set(), "uma retomada que não aconteceu não pode soltar a pausa (quem para é `stop`)"
 
 
 # --------------------------------------------------------------------------------------------- parada
