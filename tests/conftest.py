@@ -183,13 +183,19 @@ def gui(qapp, monkeypatch, tmp_path):
     """Isolamento de GUI (ver testsupport/qt_isolation.py). Devolve o registro de diálogos chamados.
 
     Também liga o VIGIA de travamento (testsupport/diagnostico_qt.py): se o teste passar do limite (60 s; mude com
-    AS_LIMITE_TESTE_JANELA), grava `logs/travamento_qt.txt` e encerra o processo, em vez de deixar a rodada parada."""
-    from testsupport import diagnostico_qt, qt_isolation
+    AS_LIMITE_TESTE_JANELA), grava `logs/travamento_qt.txt` e encerra o processo, em vez de deixar a rodada parada.
+
+    No fim esvazia a fila de eventos e coleta o lixo (`gui_helpers.encerrar_teste_de_janela`): sem isso o lixo de um teste
+    era destruído pelo coletor automático no meio de um teste POSTERIOR, e no Windows o Qt abortava nessa hora."""
+    from testsupport import diagnostico_qt, gui_helpers, qt_isolation
     log = qt_isolation.install(monkeypatch, tmp_path)
     assert not log.install_errors, log.install_errors
     diagnostico_qt.iniciar(os.environ.get("PYTEST_CURRENT_TEST", "teste de janela"), ROOT / "logs")
     yield log
-    diagnostico_qt.encerrar_atual()
+    try:
+        gui_helpers.encerrar_teste_de_janela()   # o lixo do teste é solto AGORA, e não no meio de um teste posterior
+    finally:
+        diagnostico_qt.encerrar_atual()
 
 
 @pytest.fixture

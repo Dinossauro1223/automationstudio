@@ -12,9 +12,6 @@
 name: Testes
 
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 concurrency:
@@ -91,3 +88,46 @@ jobs:
           name: logs-windows
           path: logs/
           if-no-files-found: ignore
+
+  varredura:
+    name: Windows (validação da correção) ${{ matrix.forma }}
+    runs-on: windows-latest
+    continue-on-error: true
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        forma: [plano, s0, s32, s64, s128, s200, s300, s512, s700, s1000]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Versão do Python (python_version.txt)
+        id: py
+        shell: bash
+        run: echo "versao=$(tr -d '\r\n ' < python_version.txt)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ steps.py.outputs.versao }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Dependências
+        run: python -m pip install -r requirements-dev.txt
+      - name: Suíte com a correção, com o ponto da coleta de lixo deslocado
+        shell: bash
+        env:
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: utf-8
+          QT_QPA_PLATFORM: offscreen
+          FORMA: ${{ matrix.forma }}
+        run: |
+          set +e
+          mkdir -p logs
+          if [ "$FORMA" = "plano" ]; then
+            python tests/testsupport/rodar_testes.py completo
+          else
+            N="${FORMA#s}"
+            AS_DIAG_EMPURRAO="$N" PYTEST_ADDOPTS="-p zz_diag_total" python tests/testsupport/rodar_testes.py completo
+          fi
+          echo "CODIGO DE SAIDA DA FORMA $FORMA: $?"
+          echo "---- zz_pilha_nativa"; cat logs/zz_pilha_nativa.txt 2>/dev/null | head -60

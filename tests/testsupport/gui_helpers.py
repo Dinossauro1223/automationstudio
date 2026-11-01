@@ -94,6 +94,20 @@ def descartar_janelas(janelas: list, *, app=None, coletar=gc.collect, **opcoes) 
     coletar()
 
 
+def encerrar_teste_de_janela(app=None, *, coletar=gc.collect, **opcoes) -> None:
+    """Fim de QUALQUER teste de janela (a fixture `gui` chama isto): esvazia a fila de eventos e deixa o coletor de lixo do
+    Python soltar, AGORA, o que o teste deixou (painéis, listas e janelas de mentira, que formam ciclos de referência).
+
+    Sem isto, esse lixo espera o coletor automático, que o solta num momento qualquer de um teste POSTERIOR, e no Windows o
+    Qt abortava o processo nessa hora ("Fatal Python error: Aborted", com a pilha nativa terminando numa chamada de função
+    virtual pura dentro do Qt6Core, durante a montagem do primeiro teste de `test_command_dialog.py`; a causa nunca foi
+    o teste que estava rodando: ver md/ENTREGA_PAUSA_TECLAS.md). `descartar_janelas` já faz o mesmo com a janela principal."""
+    try:
+        esvaziar_fila(app=app, **opcoes)
+    finally:
+        coletar()
+
+
 # Campos que o editor recalcula de propósito e que, por isso, não entram na comparação "abrir e salvar não altera":
 #  - delay_suggested: o editor grava o mesmo valor do atraso (to_dict já devolve o atraso quando ele é 0);
 #  - wait_min_ram_mb: campo legado, o editor sempre grava 0.0 e a execução o ignora.
