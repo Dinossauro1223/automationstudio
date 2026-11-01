@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variante: [x1_captura, x2_captura_64, x3_captura_512, g0s_young_setup, g1s_gen1_setup, g0t_young_teardown, g1t_gen1_teardown]
+        variante: [e0_so_env_qt, t0_total_0, t1_total_64, t2_total_512, t3_total_1000, t4_total_200]
     steps:
       - uses: actions/checkout@v4
       - name: Versão do Python (python_version.txt)
@@ -43,19 +43,20 @@ jobs:
           set +e
           mkdir -p logs
           COMUM='-q -o cache_dir=logs/.pytest_cache --tb=line --timeout=180 -m "not isolado"'
+          export QT_FORCE_STDERR_LOGGING=1
           case "$VARIANTE" in
-            x1*) PYTEST_ADDOPTS="-p zz_manter_captura" python tests/testsupport/rodar_testes.py completo ;;
-            x2*) AS_DIAG_EMPURRAO=64 PYTEST_ADDOPTS="-p zz_manter_captura" python tests/testsupport/rodar_testes.py completo ;;
-            x3*) AS_DIAG_EMPURRAO=512 PYTEST_ADDOPTS="-p zz_manter_captura" python tests/testsupport/rodar_testes.py completo ;;
-            g0s*) AS_DIAG_COLETA=cada AS_DIAG_GERACAO=0 AS_DIAG_ONDE=setup python -m pytest -v -s -p zz_coleta -o cache_dir=logs/.pytest_cache --tb=line --timeout=180 -m "not isolado" ;;
-            g1s*) AS_DIAG_COLETA=cada AS_DIAG_GERACAO=1 AS_DIAG_ONDE=setup python -m pytest -v -s -p zz_coleta -o cache_dir=logs/.pytest_cache --tb=line --timeout=180 -m "not isolado" ;;
-            g0t*) AS_DIAG_COLETA=cada AS_DIAG_GERACAO=0 AS_DIAG_ONDE=teardown python -m pytest -v -s -p zz_coleta -o cache_dir=logs/.pytest_cache --tb=line --timeout=180 -m "not isolado" ;;
-            g1t*) AS_DIAG_COLETA=cada AS_DIAG_GERACAO=1 AS_DIAG_ONDE=teardown python -m pytest -v -s -p zz_coleta -o cache_dir=logs/.pytest_cache --tb=line --timeout=180 -m "not isolado" ;;
+            e0*) python tests/testsupport/rodar_testes.py completo ;;
+            t0*) AS_DIAG_EMPURRAO=0 PYTEST_ADDOPTS="-p zz_diag_total" python tests/testsupport/rodar_testes.py completo ;;
+            t1*) AS_DIAG_EMPURRAO=64 PYTEST_ADDOPTS="-p zz_diag_total" python tests/testsupport/rodar_testes.py completo ;;
+            t2*) AS_DIAG_EMPURRAO=512 PYTEST_ADDOPTS="-p zz_diag_total" python tests/testsupport/rodar_testes.py completo ;;
+            t3*) AS_DIAG_EMPURRAO=1000 PYTEST_ADDOPTS="-p zz_diag_total" python tests/testsupport/rodar_testes.py completo ;;
+            t4*) AS_DIAG_EMPURRAO=200 PYTEST_ADDOPTS="-p zz_diag_total" python tests/testsupport/rodar_testes.py completo ;;
           esac
           echo "CODIGO DE SAIDA DA VARIANTE $VARIANTE: $?"
           echo "---- logs/diag_coleta.txt (fim)"; tail -n 40 logs/diag_coleta.txt 2>/dev/null
           echo "---- logs/diag_gcinfo.txt (fim)"; tail -n 160 logs/diag_gcinfo.txt 2>/dev/null
           echo "---- logs/ (arquivos)"; ls -la logs 2>/dev/null
+          echo "---- zz_pilha_nativa"; cat logs/zz_pilha_nativa.txt 2>/dev/null | head -150
           echo "---- zz_pids"; cat logs/zz_pids.txt 2>/dev/null | head -3
           if [ -f logs/zz_pids.txt ]; then
             PRIMEIRO=$(head -1 logs/zz_pids.txt | cut -d' ' -f1)
