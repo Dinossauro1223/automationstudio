@@ -29,6 +29,8 @@ Este é o catálogo do que o programa faz. O **ID não muda** (nem quando o bot�
 | F14 | Voltar ao editor (da timeline ou do monitor) | Botão (tela da timeline): ← Voltar ao editor | — | a definir |
 | F15 | Parar tudo pela tecla, mesmo que um mapa use a mesma tecla | Tecla (teste: test_a_parada_de_emergencia_continua_com_a_tecla_mesmo_que_um_mapa_use_a_mesma) | tecla de parada | a definir |
 | F16 | Executar uma automação pela tecla dela (só se estiver ativa) | Tecla (teste: test_mapa_desativado_nao_executa_pela_tecla_mas_o_botao_executar_continua_funcionando) | tecla do mapa | a definir |
+| F47 | Pausar a automação que está executando | Tecla (teste: test_f9_pausa_a_automacao_executando_e_f10_termina_o_que_faltava) | tecla de pausa | a definir |
+| F48 | Continuar a automação pausada, do ponto onde parou | Tecla (teste: test_o_callback_do_atalho_registrado_para_f9_e_f10_pausa_e_continua) | tecla de continuar | a definir |
 
 ## Gravação
 

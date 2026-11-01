@@ -44,6 +44,10 @@ FUNCOES = [
            [("teste", "tests/gui/test_ativacao_janela.py::test_a_parada_de_emergencia_continua_com_a_tecla_mesmo_que_um_mapa_use_a_mesma")]),
     Funcao("F16", "Execução", "Executar uma automação pela tecla dela (só se estiver ativa)", "tecla do mapa",
            [("teste", "tests/gui/test_ativacao_janela.py::test_mapa_desativado_nao_executa_pela_tecla_mas_o_botao_executar_continua_funcionando")]),
+    Funcao("F47", "Execução", "Pausar a automação que está executando", "tecla de pausa",
+           [("teste", "tests/gui/test_controle_janela.py::test_f9_pausa_a_automacao_executando_e_f10_termina_o_que_faltava")]),
+    Funcao("F48", "Execução", "Continuar a automação pausada, do ponto onde parou", "tecla de continuar",
+           [("teste", "tests/gui/test_controle_janela.py::test_o_callback_do_atalho_registrado_para_f9_e_f10_pausa_e_continua")]),
     # ---- Gravação
     Funcao("F17", "Gravação", "Iniciar a gravação", "tecla de gravação", [("acao", "● Iniciar gravação", "sempre")]),
     Funcao("F18", "Gravação", "Cancelar a gravação", "", [("acao", "✕ Cancelar gravação", "sempre")]),

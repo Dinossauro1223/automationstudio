@@ -74,6 +74,8 @@ Decisões **minhas** desta construção, que o plano não cobria:
 
 ## 7. Achado novo: as teclas F9 e F10 (pausar e continuar) não fazem nada
 
+> **Atualização de 1/11/2026: corrigido**, na mesma versão (25.8: é correção de defeito, `md/PLANO_FUNCOES.md`, seção 1). Ramo `funcoes/pausar-continuar-teclas`; especificação em `md/ESPEC_PAUSA_TECLAS.md` e registro de entrega, com a conferência de 3 minutos no Windows, em `md/ENTREGA_PAUSA_TECLAS.md`. O `xfail` estrito saiu: `static/test_lacunas_de_ligacao.py` virou o guarda permanente `static/test_ligacao_controle.py`. O texto abaixo é o achado como foi registrado na entrega da 25.8.
+
 **Problema.** Em Configurações aparecem "Pausar automação" e "Continuar automação", e as duas teclas são registradas. Mas apertar F9 ou F10 **não pausa nem continua** a execução.
 **Evidência (leitura do código; a janela real não foi acionada aqui).** `MainWindow._on_hotkey_triggered` atende só `map:`, `control:emergency`, `record:toggle` e `record:cancel`; o disparo de `control:pause` e `control:resume` não casa com nenhum ramo e some. `ExecutionEngine.pause()` e `resume()` existem (e o motor pausa e continua, testado em `engine/test_engine_control.py`), mas **nada no programa chama `engine.pause()` nem `engine.resume()`**.
 **Confiança.** Confirmada pela leitura (não executada).
@@ -102,6 +104,8 @@ Decisões **minhas** desta construção, que o plano não cobria:
 
 ## 10. Sugestões (nada disso foi feito)
 
+> **Atualização de 1/11/2026:** a conta de integração fez os itens 1, 2 e 3 (`.gitattributes`, GitHub Actions com Linux obrigatório e Windows informativo, e a remoção das cópias da raiz). O item 4 não vi feito.
+
 1. **`.gitattributes`** com `*.bat text eol=crlf` na `main` (corrige as 3 falhas em clone novo).
 2. **GitHub Actions no Windows** (Python 3.14, PySide6 de verdade, janela invisível): rodaria a suíte inteira, inclusive os 12 testes de janela desta função, a cada pull request, e daria os dados para a dúvida do OpenCV (F5 do roadmap).
 3. Os documentos da raiz (`ROADMAP.md`, `PONTO2_REVISAO_25_6.md`) são cópias dos de `md/`; manter só os de `md/` evita as duas versões divergirem.
@@ -111,6 +115,6 @@ Decisões **minhas** desta construção, que o plano não cobria:
 
 1. **Criar o ramo `funcoes/ativacao-mapas` no GitHub** (passo a passo na mensagem da entrega) e me avisar; só então eu envio o código, e só para esse ramo.
 2. **Aval ou veto** das decisões da seção 6.
-3. **Decidir o achado 2.11** (F9 e F10): corrigir já, como a próxima função, ou deixar para a 25.11.
+3. ~~**Decidir o achado 2.11** (F9 e F10): corrigir já, como a próxima função, ou deixar para a 25.11.~~ **Resolvido em 1/11/2026:** corrigido já, na mesma versão; falta só o seu aval em `md/ENTREGA_PAUSA_TECLAS.md`.
 4. **A rodada de testes no Windows** (`Rodar_Testes.bat`, enviando `logs\tests_last_run.txt` e, se existirem, `logs\travamento_qt.txt` e `logs\AutomationStudio.log`). Como você junta várias versões antes de rodar, pode esperar as duas frentes.
 5. Combinar com a frente visual quem faz o quê nas telas da 25.7 (`md/DIVISAO_DE_TRABALHO.md`, seção 7).

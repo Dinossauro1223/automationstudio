@@ -32,6 +32,7 @@ Confirmado pela leitura do código na 25.8 e guardado desde então como teste `x
 - `ExecutionEngine.pause()` e `resume()` passam a **devolver `True` se mudaram o estado** (e `False` se não havia o que pausar ou retomar) e **não levantam** `InvalidStateTransition` numa corrida: a tecla vem da thread da janela e o motor corre em outra. Quem os chamava e ignorava o resultado continua funcionando.
 - Módulo novo `automationstudio/controle_ui.py` (sem Qt): `ControladorDeExecucao` com `pausar()`, `retomar()` e `tecla_de_continuar()` (lê o plano de atalhos da ativação por mapa, que sabe qual tecla está de fato registrada). Mesmo desenho do controlador da ativação: a decisão fica fora da janela para poder ser testada sem Qt, e ele lê o motor e as configurações **na hora**, sempre pela janela.
 - `MainWindow`: o `import`, `self.controle = ControladorDeExecucao(self)` em `__init__` (logo depois de `self.ativacao`) e os ramos `control:pause` e `control:resume` em `_on_hotkey_triggered`. Nada mais na janela mudou.
+- Catálogo de funções do usuário (`tests/testsupport/funcoes_do_usuario.py`, da integração): **F47** "Pausar a automação que está executando" e **F48** "Continuar a automação pausada, do ponto onde parou", com o teste de janela que as exercita como endereço. `md/FUNCOES_DO_USUARIO.md` foi regenerado no mesmo commit.
 
 ## 4. Critérios objetivos
 
@@ -42,7 +43,7 @@ Confirmado pela leitura do código na 25.8 e guardado desde então como teste `x
 | PAU-03 | Fora de execução (parado, gravando, parando) as duas teclas não fazem nada, sem mensagem e sem erro; F10 sem pausa não troca o estado | L + Q | `unit/test_controle_execucao.py`; `engine/test_engine_control.py`; `gui/test_controle_janela.py` |
 | PAU-04 | Corrida com o fim ou a parada da execução: sem erro e sem soltar nem prender a thread; pausas e retomadas vindas de outra thread, milhares por execução, não perdem nem repetem entrada | L | `engine/test_engine_control.py` (inclusive o teste de estresse entre threads); `unit/test_controle_execucao.py` |
 | PAU-05 | **Toda ação de controle registrada tem ramo** em `_on_hotkey_triggered` (teria pego o achado 2.11); cada tecla chama o seu método; o controlador existe antes de os atalhos serem registrados | L | `static/test_ligacao_controle.py` |
-| PAU-06 | Pausada, parar e emergência continuam funcionando (já cobertos no motor) | L | `engine/test_engine_control.py` |
+| PAU-06 | Pausada, parar e emergência continuam funcionando, e a tecla que ficou apertada na pausa é solta no fim: o motor (já coberto) e, na janela, as três formas de parar com a automação pausada (tecla de parar tudo, botão ■ Parar, tecla da própria automação), com o botão ■ Parar ativo e o ▶ Executar desativado enquanto pausada | L + Q | `engine/test_engine_control.py`; `gui/test_controle_janela.py` |
 
 L = lógica (roda aqui); Q = janela com o Qt de verdade (só na sua máquina ou no CI).
 

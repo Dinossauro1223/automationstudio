@@ -14,7 +14,7 @@ As mensagens são conferidas pelas chamadas a `status_bar.showMessage` (uma espi
 automação executa, a janela escreve ali cada tecla ou clique executado ("[0.05s] key_up F"), e uma dessas linhas, ainda na fila
 do Qt, pode cobrir a mensagem sem que isso seja defeito.
 
-Critérios da ficha (md/ESPEC_PAUSA_TECLAS.md): PAU-01, PAU-02 e PAU-03 (a parte com a janela).
+Critérios da ficha (md/ESPEC_PAUSA_TECLAS.md): PAU-01, PAU-02, PAU-03 e PAU-06 (a parte com a janela).
 Isolamento e marcador `isolado`: como em test_main_window_smoke.py.
 """
 import time
@@ -27,7 +27,7 @@ from PySide6.QtCore import QCoreApplication  # noqa: E402
 from PySide6.QtWidgets import QInputDialog  # noqa: E402
 
 from automationstudio.core import State, parse_combo  # noqa: E402
-from testsupport.helpers import events_of, join_engine, key  # noqa: E402
+from testsupport.helpers import events_of, join_engine, key, pressed_balance  # noqa: E402
 
 pytestmark = [pytest.mark.gui, pytest.mark.isolado]
 
@@ -157,3 +157,43 @@ def test_f9_e_f10_sem_automacao_executando_nao_fazem_nada(abrir_janela, monkeypa
     assert [m for m in mensagens if m.startswith("Automação pausada") or m.startswith("Automação retomada")] == [], \
         "sem automação executando, as duas teclas não dizem nada: " + str(mensagens)
     janela.engine.emergency_stop()
+
+
+# ------------------------------------------------------------------------------------------------ PAU-06
+def _executar_e_pausar(janela, monkeypatch):
+    """Põe uma automação para executar, espera a tecla F apertar e a pausa pela tecla F9. Devolve o mapa."""
+    mapa = _nova_automacao(janela, monkeypatch)
+    mapa.repeat_count = 1
+    mapa.add_command(key("F", 0.0, 0.3))  # F fica apertada de 0 a 0,3 s: a pausa chega com ela ainda apertada
+    mapa.add_command(key("G", 0.5, 0.05))
+    janela._on_map_edited()
+    janela._run_current_map()
+    assert _esperar(lambda: ("key_down", "F") in _acoes(janela)), _acoes(janela)
+    janela._on_hotkey_triggered("control:pause")
+    _processar()
+    assert janela.state.state == State.PAUSED, janela.state.state
+    return mapa
+
+
+@pytest.mark.parametrize("como", ["emergencia", "botao_parar", "tecla_da_automacao"])
+def test_com_a_automacao_pausada_a_parada_continua_valendo_e_nada_fica_apertado(abrir_janela, monkeypatch, como):          # PAU-06
+    """O que o plano da frente de funções pede (md/PLANO_FUNCOES.md, seção 2, item 4): a pausa não tira do usuário o jeito de
+    parar. As três formas de parar (a tecla de parar tudo, o botão ■ Parar e a tecla da própria automação) encerram uma
+    automação pausada, e a tecla que ficou apertada na pausa é solta no fim."""
+    janela = abrir_janela()
+    mapa = _executar_e_pausar(janela, monkeypatch)
+    assert janela.btn_stop.isEnabled(), "pausada, o botão ■ Parar continua ativo"
+    assert not janela.btn_run.isEnabled(), "pausada, não se começa outra execução por cima"
+    if como == "emergencia":
+        janela._on_hotkey_triggered("control:emergency")  # F12
+    elif como == "botao_parar":
+        janela.btn_stop.trigger()
+    else:
+        janela._on_hotkey_triggered("map:" + mapa.name)  # a tecla que inicia a automação também a para
+    assert _esperar(lambda: janela.state.state == State.IDLE), janela.state.state
+    join_engine(janela.engine, timeout=10.0)
+    _processar()
+    assert janela.state.state == State.IDLE
+    assert pressed_balance(janela.engine._backend) == {}, "nada fica apertado depois de parar"
+    assert ("key_down", "G") not in _acoes(janela), "uma automação parada não segue enviando entradas: " + str(_acoes(janela))
+    assert janela.btn_run.isEnabled() and not janela.btn_stop.isEnabled(), "parada, os botões voltam ao estado de repouso"
