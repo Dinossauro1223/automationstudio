@@ -1468,6 +1468,16 @@ def catalogo() -> list[Mutante]:
            "depois de 3 travamentos seguidos o código de saída continua sendo o do travamento (86)",
            RT, '    so_travamentos = all(r["estado"] in ("TRAVOU", "NAO_RODOU") for r in ruins)',
            '    so_travamentos = all(r["estado"] in ("TRAVOU",) for r in ruins)'))
+    add(_m("NET93", "redes", "encerrar um teste de janela não esvazia a fila de eventos",
+           "o que o teste deixou na fila (e as exclusões pendentes) não sobra para o teste seguinte",
+           GH, "        esvaziar_fila(app=app, **opcoes)", "        pass"))
+    add(_m("NET94", "redes", "encerrar um teste de janela não deixa o coletor de lixo do Python soltar o que sobrou",
+           "o lixo de um teste de janela é solto ao fim dele, e não no meio de um teste posterior (abort do Windows de 01/11/2026)",
+           GH, L("    finally:", "        coletar()"), L("    finally:", "        pass")))
+    add(_m("NET95", "redes", "a fixture `gui` não chama o encerramento do teste de janela",
+           "todo teste de janela solta o seu lixo ao terminar",
+           "tests/conftest.py", "        gui_helpers.encerrar_teste_de_janela()   # o lixo do teste é solto AGORA, e não no meio de um teste posterior",
+           "        pass"))
 
     # ---------------------------------------------------------------------------------------------- checagens estáticas
     add(_m("EST01", "estatico", "nome inexistente numa função pouco usada (KeyCode digitado errado)", "achado 1.04: nome global inexistente",
