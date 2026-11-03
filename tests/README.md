@@ -197,6 +197,8 @@ São comportamentos desejados que o código ainda **não** tem. Quando um deles 
 | `persistence/test_project_manager.py::test_json_legado_nao_ressuscita_mapa_apagado` | A migração dos JSON antigos roda sempre que o banco está vazio: apagar o último mapa e reabrir traz de volta os arquivos antigos da pasta (achado 2.03). | Ponto 3 |
 | `persistence/test_project_manager.py::test_carregar_por_nome_com_ponto_no_nome` | `load_map("Mapa v1.2")` perde o que vem depois do último ponto (achado 2.04; a interface não usa essa rota). | Ponto 3 |
 
+*Com o Qt de verdade (GitHub Actions) aparece um terceiro `xfail` estrito, que os dublês pulam por exigir o Qt real e que esta tabela nunca listou: `unit/test_vision_comportamento.py::test_vision_elemento_pequeno_ausente_nao_deveria_contar_como_encontrado`, a lacuna F4 do roadmap (fase 7.A: a comparação de imagem é uma média, então um elemento de 4% da região que falta na tela ainda conta como encontrado). Por isso o Actions mostra 3 `xfail` onde os dublês mostram 2.*
+
 *Dos seis testes que esta lista já teve, quatro foram corrigidos. O das teclas F9 e F10 (achado 2.11): o teste saiu daqui e virou o guarda permanente `static/test_ligacao_controle.py` (`md/ESPEC_PAUSA_TECLAS.md`). E as três lacunas de validação (botão do mouse desconhecido, "abrir aplicativo" sem alvo e `repeat_count` menor que -1), fechadas na F2 (versão 25.9): os marcadores saíram e os testes ficam em `unit/test_validation_gaps.py` como regressão, junto com os que fixam os limites de cada regra (`md/ENTREGA_VALIDACAO_25_9.md`).*
 
 ## O que a suíte não prova

@@ -47,7 +47,10 @@ Você autorizou ramos abertos sobre os meus. Este nasce de `funcoes/pausar-conti
 
 **Dados reais.** `test_legacy_maps.py` (os 3 mapas reais, `validate()` e `validate_structure()` sem erro) segue verde. Além disso, o seu `AutomationStudio.db` de 08/10, numa cópia: 3 mapas, 943 comandos, nenhum erro de validação, nenhum recusado pelas regras novas.
 
-**GitHub Actions** (Qt de verdade, Python 3.14.x, PySide6 6.12.0): ainda não rodou neste ramo no momento deste commit; o resultado entra no commit seguinte, que atualiza esta linha.
+**GitHub Actions** (Qt de verdade, PySide6 6.12.0), execução 41718903675, disparada à mão no commit `ab5a330` (o da função e deste documento) em 03/11/2026:
+- **Linux** (Python 3.14.9): passo comum com **1805 passam, 11 pulados, 3 xfail** (47 s); janela principal, um processo por teste, **44 de 44**; código de saída 0.
+- **Windows** (Python 3.14.10): passo comum com **1804 passam, 12 pulados, 3 xfail** (70 s); janela principal **44 de 44**; código de saída 0, **sem abort**.
+- Os 3 xfail são os 2 de persistência (achados 2.03 e 2.04) e o da visão (F4 do roadmap, fase 7.A), que os dublês pulam porque exige o Qt de verdade. Em relação à execução da pausa (Linux 1716 / Windows 1715, com 6 xfail), os passam sobem 89 nos dois (3 xfail que viraram teste comum e 86 testes novos) e os **pulados não mudaram** (11 e 12): nenhum teste novo foi pulado, inclusive o do editor, que só vale com a janela de verdade.
 
 ## 6. O que não foi verificado
 
