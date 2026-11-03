@@ -172,7 +172,7 @@ py tests\testsupport\mutacoes.py --tabela         tabela em Markdown
 py tests\testsupport\mutacoes.py --retomar        continua uma rodada interrompida
 ```
 
-A rodada inteira (381 defeitos) leva perto de uma hora (duas cópias testadas ao mesmo tempo). Foi refeita inteira ao fim da correção do achado 2.11 (pausar e continuar pelas teclas F9 e F10) e da limpeza dos testes de janela (o abort do Windows no Actions), com o código e os testes delas: os 381 do catálogo (292 da base, 62 da ativação por mapa, o `EST13`, 23 da pausa e `NET93` a `NET95`, da limpeza do fim de cada teste de janela) foram todos mortos, sem sobrevivente nem defeito inválido. A rodada foi retomada uma vez depois de o ambiente interrompê-la (`--retomar`). Por padrão usa o dublê de widgets, também onde o PySide6 está instalado (veja `AS_MUTACOES_QT_REAL`). Cada resultado é gravado assim que sai (`logs\mutacoes_progresso.jsonl`); se o computador dormir ou você interromper, `--retomar` continua dali. O progresso só vale para o **mesmo** projeto (guarda uma impressão digital do código e dos testes): se algo mudou desde então, a retomada é recusada em vez de misturar resultados de suítes diferentes.
+A rodada inteira (391 defeitos) leva perto de uma hora (duas cópias testadas ao mesmo tempo). Foi refeita inteira ao fim da F2 (a validação do mapa recusar botão de mouse desconhecido, "abrir aplicativo" sem alvo e `repeat_count` menor que -1), com o código e os testes dela: os 391 do catálogo (292 da base, 62 da ativação por mapa, o `EST13`, 23 da pausa, `NET93` a `NET95`, da limpeza do fim de cada teste de janela, e 10 da validação do mapa: `MOD51` a `MOD56`, `MOT34`, `MOT35`, `W3222` e `EDI31`) foram todos mortos, sem sobrevivente nem defeito inválido. A rodada foi retomada uma vez depois de o ambiente interrompê-la (`--retomar`). Por padrão usa o dublê de widgets, também onde o PySide6 está instalado (veja `AS_MUTACOES_QT_REAL`). Cada resultado é gravado assim que sai (`logs\mutacoes_progresso.jsonl`); se o computador dormir ou você interromper, `--retomar` continua dali. O progresso só vale para o **mesmo** projeto (guarda uma impressão digital do código e dos testes): se algo mudou desde então, a retomada é recusada em vez de misturar resultados de suítes diferentes.
 
 **Para acrescentar um defeito**, edite `catalogo()` em `tests/testsupport/mutacoes.py`: `add(_m(ID, área, "o defeito", "o que a suíte deveria garantir", "arquivo", "trecho exato", "trecho trocado"))`. O trecho tem de aparecer exatamente o número de vezes esperado (senão o defeito é recusado em vez de plantado no lugar errado). Rode `--validar` e depois `--so ID`. Todo defeito novo que sobrevive vira um teste novo.
 
@@ -188,7 +188,7 @@ Ao melhorar um número, baixe a constante na mesma alteração.
 
 **Catraca de cobertura.** `Rodar_Testes.bat cobertura` mede linhas e ramos com o `coverage.py`, agrupa por parte (`core`, `conditions`, `project`, `input_system`, `vision`, `ativacao`, `controle`, `interface`) e compara com `tests/coverage_baseline.json`. **Esse arquivo não vem no pacote:** o baseline precisa ser medido na sua máquina, com o PySide6 de verdade; a primeira rodada o grava e as seguintes comparam. Uma queda reprova (código 1) e **não** regrava o baseline; para subir a catraca depois de uma melhora, ou para aceitar uma queda de propósito, rode `py tests\testsupport\catraca_cobertura.py --gravar`. Um baseline gravado com o dublê de widgets não serve de régua para o Qt de verdade (a interface cobre muito mais com ele): grave de novo se mudar de ambiente.
 
-## Defeitos conhecidos (5 testes `xfail` estritos)
+## Defeitos conhecidos (2 testes `xfail` estritos)
 
 São comportamentos desejados que o código ainda **não** tem. Quando um deles for corrigido o teste passa, o pytest reclama (`strict`) e o marcador sai.
 
@@ -196,9 +196,8 @@ São comportamentos desejados que o código ainda **não** tem. Quando um deles 
 |---|---|---|
 | `persistence/test_project_manager.py::test_json_legado_nao_ressuscita_mapa_apagado` | A migração dos JSON antigos roda sempre que o banco está vazio: apagar o último mapa e reabrir traz de volta os arquivos antigos da pasta (achado 2.03). | Ponto 3 |
 | `persistence/test_project_manager.py::test_carregar_por_nome_com_ponto_no_nome` | `load_map("Mapa v1.2")` perde o que vem depois do último ponto (achado 2.04; a interface não usa essa rota). | Ponto 3 |
-| `unit/test_validation_gaps.py` (3 testes) | A validação não confere o nome do botão do mouse, aceita "abrir aplicativo" sem alvo e aceita `repeat_count` menor que -1. | Ponto 3 (leitor v2) |
 
-*O sexto, o das teclas F9 e F10 (achado 2.11), foi corrigido: o teste saiu desta lista e virou o guarda permanente `static/test_ligacao_controle.py` (`md/ESPEC_PAUSA_TECLAS.md`).*
+*Dos seis testes que esta lista já teve, quatro foram corrigidos. O das teclas F9 e F10 (achado 2.11): o teste saiu daqui e virou o guarda permanente `static/test_ligacao_controle.py` (`md/ESPEC_PAUSA_TECLAS.md`). E as três lacunas de validação (botão do mouse desconhecido, "abrir aplicativo" sem alvo e `repeat_count` menor que -1), fechadas na F2 (versão 25.9): os marcadores saíram e os testes ficam em `unit/test_validation_gaps.py` como regressão, junto com os que fixam os limites de cada regra (`md/ENTREGA_VALIDACAO_25_9.md`).*
 
 ## O que a suíte não prova
 

@@ -1078,6 +1078,27 @@ def catalogo() -> list[Mutante]:
            CORE, L("            f.write(f\"[{datetime.now().isoformat(timespec='seconds')}] {message}\\n\")", "    except Exception:"),
            L("            f.write(f\"[{datetime.now().isoformat(timespec='seconds')}] {message}\\n\")", "    except ZeroDivisionError:")))
 
+    # ---------------------------------------------------------------------------------------------- validação do que o executor exige (F2, 25.9)
+    add(_m("MOD51", "modelo", "um botão de mouse desconhecido passa na validação do comando", "F2: o mapa com um botão que o backend recusaria nem começa",
+           CORE, "        elif self.type == InputType.MOUSE_BUTTON and str(self.target).lower() not in MOUSE_BUTTON_NAMES:", "        elif False:"))
+    add(_m("MOD52", "modelo", "a validação do botão do mouse diferencia maiúsculas de minúsculas", "F2: \"Left\" executa (os backends comparam em minúsculas), então a validação não o recusa",
+           CORE, "str(self.target).lower() not in MOUSE_BUTTON_NAMES", "str(self.target) not in MOUSE_BUTTON_NAMES"))
+    add(_m("MOD53", "modelo", "abrir aplicativo sem alvo passa na validação do comando", "F2: o executor recusa o alvo vazio; a validação também",
+           CORE, "        if self.type == InputType.APP_OPEN and not normalized_app_target(self.target):", "        if False:"))
+    add(_m("MOD54", "modelo", "a normalização do alvo de abrir aplicativo não tira espaços nem aspas", "F2: alvo só com espaços ou aspas conta como vazio",
+           CORE, '    return str(target or "").strip().strip(\'"\')', '    return str(target or "")'))
+    add(_m("MOD55", "modelo", "repeat_count menor que -1 passa na validação do mapa", "F2: só -1 (infinito) e os positivos fazem sentido",
+           CORE, "        elif self.repeat_count < -1:", "        elif False:"))
+    add(_m("MOD56", "modelo", "repeat_count -1 (infinito) passa a ser recusado pela validação do mapa", "F2: -1 continua válido (2 dos 3 mapas reais o usam)",
+           CORE, "        elif self.repeat_count < -1:", "        elif self.repeat_count <= -1:"))
+    add(_m("MOT34", "motor", "o executor abre o alvo sem tirar as aspas externas (conta diferente da validação)", "F2: executor e validação usam a mesma normalização do alvo",
+           IS, "        exe = normalized_app_target(target)", '        exe = str(target or "").strip()'))
+    add(_m("MOT35", "motor", "o executor deixa de recusar o alvo vazio de abrir aplicativo", "F2: sem programa a abrir, o executor recusa",
+           IS, L("        if not exe:", '            raise RuntimeError("Nenhum aplicativo foi definido para abrir.")'),
+           L("        if False:", '            raise RuntimeError("Nenhum aplicativo foi definido para abrir.")')))
+    add(_m("W3222", "win32", "o backend Win32 aceita um terceiro botão lateral que a lista oficial não tem", "F2: validação e backend concordam nos nomes de botão",
+           IS, '{"x1": self.XBUTTON1, "x2": self.XBUTTON2}', '{"x1": self.XBUTTON1, "x2": self.XBUTTON2, "x3": self.XBUTTON2}'))
+
     # ---------------------------------------------------------------------------------------------- persistência
     add(_m("PER01", "persistencia", "excluir um mapa que não existe diz que excluiu", "delete_map devolve se algo foi excluído",
            PRJ, "        return cur.rowcount > 0", "        return True"))
@@ -1182,6 +1203,8 @@ def catalogo() -> list[Mutante]:
            "        direction = 1 if dy > 0 else 0 if dy < 0 else 2 if dx < 0 else 3 if dx > 0 else 0\n", modo=i))
     add(_m("EDI30", "editor", "a rolagem para cima é salva com o sinal trocado", "o comando de rolagem sai do editor com o sinal certo",
            EDI, "c.scroll_dy=(lines if direction=='up' else -lines if direction=='down' else 0)", "c.scroll_dy=(-lines if direction=='up' else lines if direction=='down' else 0)", modo=i))
+    add(_m("EDI31", "editor", "o editor oferece um botão do mouse que a validação recusa", "F2: a lista de botões do editor é a mesma da validação (core.MOUSE_BUTTON_NAMES)",
+           EDI, "('Botão lateral 2','x2')]", "('Botão lateral 2','x2'),('Botão lateral 3','x3')]", modo=i))
 
     # ---------------------------------------------------------------------------------------------- redes de segurança dos testes
     add(_m("NET01", "redes", "a rede que bloqueia abrir aplicativo de verdade nos testes é desligada", "nenhum teste abre um aplicativo na máquina de quem roda a suíte",
