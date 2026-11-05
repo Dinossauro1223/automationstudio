@@ -1091,6 +1091,24 @@ def catalogo() -> list[Mutante]:
            CORE, "        elif self.repeat_count < -1:", "        elif False:"))
     add(_m("MOD56", "modelo", "repeat_count -1 (infinito) passa a ser recusado pela validação do mapa", "F2: -1 continua válido (2 dos 3 mapas reais o usam)",
            CORE, "        elif self.repeat_count < -1:", "        elif self.repeat_count <= -1:"))
+    # ---------------------------------------------------------------------------------------------- condições de espera por imagem: a validação nunca lança (25.9)
+    _EXC = "except (TypeError, ValueError, OverflowError):"   # aparece 3 vezes em conditions.py: precisão, intervalo e região, nessa ordem
+    add(_m("MOD57", "modelo", "uma precisão ilegível (\"0,9\") volta a lançar exceção na validação em vez de virar mensagem", "a validação devolve o erro que aponta o valor, nunca lança",
+           COND, _EXC, "except ZeroDivisionError:", ocorrencia=1, total=3))
+    add(_m("MOD58", "modelo", "um intervalo ilegível volta a lançar exceção na validação", "a validação devolve o erro que aponta o valor, nunca lança",
+           COND, _EXC, "except ZeroDivisionError:", ocorrencia=2, total=3))
+    add(_m("MOD59", "modelo", "um valor ilegível da região volta a passar (ou a lançar) na validação", "a validação recusa o que vision.capture_region não converte (int)",
+           COND, _EXC, "except ZeroDivisionError:", ocorrencia=3, total=3))
+    add(_m("MOD60", "modelo", "a região é validada com float() em vez de int(), como o executor não faz", "paridade com vision.capture_region: \"10.5\" (texto) não converte com int()",
+           COND, "                        value = int(region.get(key, 0))", "                        value = int(float(region.get(key, 0)))"))
+    add(_m("MOD61", "modelo", "a mensagem da vírgula decimal deixa de dizer para usar ponto", "o erro de digitação mais provável (0,9) vem com a dica",
+           COND, 'if isinstance(value, str) and "," in value else ""', 'if False else ""'))
+    add(_m("MOD62", "modelo", "o valor ilegível aparece inteiro na mensagem (400 dígitos)", "a mensagem mostra o valor cortado em 40 caracteres",
+           COND, '    return text if len(text) <= 40 else text[:37] + "..."', "    return text"))
+    add(_m("MOD63", "modelo", "x e y negativos da região passam a ser recusados", "monitor à esquerda ou acima da tela principal tem coordenada negativa",
+           COND, '                    if key in ("w", "h") and value < 0:', "                    if value < 0:"))
+    add(_m("MOD64", "modelo", "largura ou altura negativa da região passa na validação", "a região negativa é recusada com a mensagem de antes",
+           COND, '                    if key in ("w", "h") and value < 0:', "                    if False:"))
     add(_m("MOT34", "motor", "o executor abre o alvo sem tirar as aspas externas (conta diferente da validação)", "F2: executor e validação usam a mesma normalização do alvo",
            IS, "        exe = normalized_app_target(target)", '        exe = str(target or "").strip()'))
     add(_m("MOT35", "motor", "o executor deixa de recusar o alvo vazio de abrir aplicativo", "F2: sem programa a abrir, o executor recusa",
