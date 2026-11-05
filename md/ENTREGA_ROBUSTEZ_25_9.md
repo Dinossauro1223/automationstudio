@@ -86,7 +86,10 @@ Os 2 xfail são os mesmos em todas as linhas. Os 31 testes novos do editor ficam
 
 **Defeitos plantados.** O catálogo vai de 391 para **414** (+23): `MOD57` a `MOD64` (a validação de imagem: cada `except` desfeito, `float` no lugar de `int`, dica sem efeito, valor sem corte, x/y negativos recusados, largura/altura negativa aceita), `EDI32` a `EDI38` (o editor: o rótulo e a edição voltando a lançar exceção, a regra do executor no rótulo, a região que não é objeto, o padrão que vira 0, o valor escondido ou sem corte no rótulo), `MOD65` a `MOD69` (tecla padrão nas duas camadas, duração vazia e só com desativados, reparo de IDs) e `PER17` a `PER19` (os três resguardos do banco). Cada grupo foi rodado à parte quando nasceu (os 16 do modelo e do banco: 16 de 16 mortos). **Rodada completa:** os 407 do catálogo daquele momento (os 391 da base, `MOD57` a `MOD64` e os 8 das lacunas), numa cópia com os commits 1 e 3 (sem o do editor, que difere da árvore final só em `command_editor.py`, `tests/gui/test_command_dialog.py` e nas linhas novas do catálogo, conferido com `diff`): **407 mortos, 0 sobreviveram, 0 inválidos**, 100% dos defeitos pegos. A rodada foi retomada três vezes depois de o ambiente a interromper (no 28º, no 160º e no 184º defeito; cerca de 70 min no total, 35 min na última parte). A área do editor (38 defeitos, `EDI01` a `EDI38`), refeita numa cópia limpa da árvore final, que já tem o commit do editor: **38 mortos, 0 sobreviveram, 0 inválidos** (6,6 min), e os 7 novos foram mortos por testes que apontam o motivo. `--validar` confirma que os 399, 406 e 414 defeitos de cada commit se aplicam ao código dele.
 
-**GitHub Actions** (Qt de verdade, PySide6 6.12.0): @@ACTIONS@@
+**GitHub Actions** (Qt de verdade, PySide6 6.12.0), execução 41961289396, disparada à mão no commit `41ec636` (a ponta do ramo na hora: a árvore de código é a dos commits 1 a 3, e o commit seguinte só altera este documento) em 05/11/2026:
+- **Linux** (Python 3.14.10): passo comum com **1998 passam, 11 pulados, 3 xfail** (51 s); janela principal, um processo por teste, **44 de 44**; sucesso.
+- **Windows** (Python 3.14.10, informativo): passo comum com **1997 passam, 12 pulados, 3 xfail** (56 s); janela principal **44 de 44**; sucesso.
+- Em relação à execução da F2 (Linux 1805, Windows 1804, 3 xfail nas duas), os passam sobem **193 nos dois**, que é exatamente a conta dos testes novos (153 + 6 + 2 + 1 + 31), e os **pulados não mudaram** (11 e 12): nenhum teste novo foi pulado, inclusive os 31 do editor, que o dublê de lógica pula e que aqui rodaram com os widgets de verdade. Os 3 xfail são os mesmos de antes (achados 2.03 e 2.04 da persistência e a F4 da visão, fase 7.A); os dublês pulam o da visão, que exige o Qt de verdade, e por isso a tabela acima mostra 2.
 
 ## 6. A medição da F4: a F-O2 não se sustenta no Linux
 
@@ -114,10 +117,10 @@ Este ramo nasce de `funcoes/validacao-lacunas` (`f74f324`) e não da `main` porq
 ## 8. O que não foi verificado
 
 - **Windows de verdade.** Nada aqui toca em entrada real nem na captura de tela.
-- **A captura com a região convertida** (`vision.capture_region`) só roda com o Qt de verdade; a paridade com ela é conferida contra a conta copiada no teste, e o Actions roda a suíte com o Qt (resultado na seção 5).
-- **O editor com o Qt de verdade.** Os testes novos do editor rodam aqui no dublê de widgets; a linha 453 é Python puro (a falha não depende do Qt), mas as caixas numéricas e a lista de condições só o Actions exercita de verdade (resultado na seção 5).
-- **Python 3.14 aqui.** O ambiente onde rodei os dublês tem o Python 3.13.16; quem roda o 3.14 é o Actions.
-- **A cobertura do Windows e da visão.** A medição da seção 2 é do dublê de widgets; a visão (24,5% aí) tem cobertura própria no Actions, que não medi.
+- **A captura com a região convertida** (`vision.capture_region`) só roda com o Qt de verdade, e a paridade do meu teste é conferida contra a conta copiada, não contra o `vision.py`. O Actions (seção 5) rodou com o Qt de verdade e passou, inclusive os testes que já existiam dessa função (`test_vision_comportamento.py`: o texto numérico `"6"` vira inteiro e largura ou altura 0 cai no tamanho padrão), o que confirma essas duas contas do lado do executor. Esses testes usam uma tela falsa: a captura de uma tela de verdade continua sem teste.
+- **O editor numa janela de verdade.** Os 31 testes novos do editor passaram com os widgets de verdade no Actions (seção 5; no Linux, num display virtual); ninguém abriu o diálogo e olhou o resultado numa janela de verdade (a linha 453 era Python puro, e a correção não depende do Qt).
+- **Python 3.14 aqui.** O ambiente onde rodei os dublês tem o Python 3.13.16; quem roda o 3.14 é o Actions (3.14.10 nos dois sistemas, seção 5).
+- **A cobertura com o Qt de verdade.** A medição da seção 2 é do dublê de widgets (por isso a visão aparece com 24,5%). O Actions roda o modo `completo` do `rodar_testes.py` e não o `cobertura`, que usa o `coverage.py` (o `requirements-dev.txt` já o instala lá) e confere a catraca contra um `tests/coverage_baseline.json` que não está no repositório. Nenhuma cobertura foi medida com o Qt de verdade; é o passo seguinte natural para achar lacunas na interface e na visão.
 
 ## 9. Para a integração
 
