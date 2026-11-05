@@ -1223,6 +1223,22 @@ def catalogo() -> list[Mutante]:
            EDI, "c.scroll_dy=(lines if direction=='up' else -lines if direction=='down' else 0)", "c.scroll_dy=(-lines if direction=='up' else lines if direction=='down' else 0)", modo=i))
     add(_m("EDI31", "editor", "o editor oferece um botão do mouse que a validação recusa", "F2: a lista de botões do editor é a mesma da validação (core.MOUSE_BUTTON_NAMES)",
            EDI, "('Botão lateral 2','x2')]", "('Botão lateral 2','x2'),('Botão lateral 3','x3')]", modo=i))
+    # ---------------------------------------------------------------------------------------------- editor: condição de imagem com valor ilegível (25.9)
+    _EXC_EDI = "except (TypeError, ValueError, OverflowError):"   # aparece 2 vezes em command_editor.py: _numero_ou_padrao e o rótulo da condição, nessa ordem
+    add(_m("EDI32", "editor", "o rótulo da condição de imagem volta a lançar exceção com uma precisão ilegível (o comando não abre)", "um JSON editado à mão com \"0,9\" não impede de abrir o comando para corrigir",
+           EDI, _EXC_EDI, "except ZeroDivisionError:", ocorrencia=2, total=2, modo=i))
+    add(_m("EDI33", "editor", "editar uma condição de imagem com valor ilegível volta a lançar exceção", "o botão Editar carrega o padrão no campo que não dá para ler",
+           EDI, _EXC_EDI, "except ZeroDivisionError:", ocorrencia=1, total=2, modo=i))
+    add(_m("EDI34", "editor", "o rótulo mostra a precisão sem a regra do executor (nulo e zero valem 95%)", "o rótulo diz a precisão que vai valer de fato",
+           EDI, "precision = f'{float(confidence or 0.95):.0%}'", "precision = f'{float(confidence):.0%}'", modo=i))
+    add(_m("EDI35", "editor", "editar uma condição cuja região não é um objeto lança exceção", "região de outro tipo vira zeros no formulário",
+           EDI, "        if not isinstance(region, dict):\n            region={}", "        if False:\n            region={}", modo=i))
+    add(_m("EDI36", "editor", "editar uma condição de valor ilegível carrega 0 em vez do padrão", "o formulário abre com o padrão (95% e 0,5 s)",
+           EDI, "        return tipo(padrao)", "        return tipo(0)", modo=i))
+    add(_m("EDI37", "editor", "o rótulo de uma precisão ilegível não mostra o valor", "o rótulo mostra o que está gravado, para o usuário achar o erro",
+           EDI, "precision = f'ilegível ({_valor_curto(confidence)})'", "precision = 'ilegível'", modo=i))
+    add(_m("EDI38", "editor", "o valor ilegível aparece inteiro no rótulo da lista (centenas de caracteres)", "o rótulo mostra o valor cortado em 20 caracteres",
+           EDI, '    return texto if len(texto) <= limite else texto[:limite - 3] + "..."', "    return texto", modo=i))
 
     # ---------------------------------------------------------------------------------------------- redes de segurança dos testes
     add(_m("NET01", "redes", "a rede que bloqueia abrir aplicativo de verdade nos testes é desligada", "nenhum teste abre um aplicativo na máquina de quem roda a suíte",
