@@ -284,3 +284,9 @@ def test_o_refazer_tambem_conta_no_orcamento(monkeypatch):
     desfazer, refazer = historico.depth(mapa)
     assert desfazer == 0 and refazer >= 1
     assert historico.usage_bytes() <= historico.budget_bytes
+
+
+def test_snapshot_que_nao_serializa_conta_4096_bytes_em_vez_de_derrubar_o_historico():
+    # Um snapshot vem de to_dict() e sempre serializa; este é o resguardo caso um dia venha algo que não serialize.
+    assert MapHistory._size({"x": object()}) == 4096
+

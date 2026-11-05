@@ -449,6 +449,13 @@ CTL = "automationstudio/controle_ui.py"
 GOLD = "tests/data/golden/"
 
 
+def _sem_tecla_padrao(texto: str) -> str:
+    """Tira as duas camadas que dão a tecla "=" a um mapa sem tecla (a leitura e o __init__ do mapa)."""
+    leitura, construtor = 'hotkey=data.get("hotkey") or "=",', "        if not self.hotkey:"
+    assert leitura in texto and construtor in texto, "as duas camadas da tecla padrão mudaram: atualize o defeito MOD66"
+    return texto.replace(leitura, 'hotkey=data.get("hotkey"),', 1).replace(construtor, "        if False:", 1)
+
+
 def _motor_guardado(texto: str) -> str:
     """O controlador guarda `janela.engine` ao ser criado e passa a usar a cópia (uma referência que ficaria velha)."""
     guardado = texto.replace("        self.janela = janela\n", "        self.janela = janela\n        self._motor = janela.engine\n", 1)
@@ -1109,6 +1116,18 @@ def catalogo() -> list[Mutante]:
            COND, '                    if key in ("w", "h") and value < 0:', "                    if value < 0:"))
     add(_m("MOD64", "modelo", "largura ou altura negativa da região passa na validação", "a região negativa é recusada com a mensagem de antes",
            COND, '                    if key in ("w", "h") and value < 0:', "                    if False:"))
+    # ---------------------------------------------------------------------------------------------- lacunas do modelo apontadas pela cobertura (25.9)
+    add(_m("MOD65", "modelo", "o mapa criado sem tecla fica sem tecla", "mapa antigo salvo sem tecla ganha \"=\" ao abrir",
+           CORE, L("        if not self.hotkey:", '            self.hotkey = "="'), L("        if False:", '            self.hotkey = "="')))
+    add(_m("MOD66", "modelo", "o mapa lido sem tecla fica sem tecla (as duas camadas da tecla padrão)", "mapa antigo salvo sem tecla ganha \"=\" ao abrir",
+           CORE, funcao=_sem_tecla_padrao))
+    add(_m("MOD67", "modelo", "a duração total de um mapa vazio deixa de ser zero", "mapa sem comandos dura 0 s",
+           CORE, L("        if not self.commands:", "            return 0.0"), L("        if not self.commands:", "            return 1.0")))
+    add(_m("MOD68", "modelo", "a duração total de um mapa só com comandos desativados deixa de ser zero", "comando desativado não conta na duração",
+           CORE, "        return max((c.effective_end for c in self.commands if c.enabled), default=0.0)",
+           "        return max((c.effective_end for c in self.commands if c.enabled), default=1.0)"))
+    add(_m("MOD69", "modelo", "o reparo de IDs aceita um ID novo que já está em uso", "dois comandos nunca ficam com o mesmo ID",
+           CORE, "                while new_id in seen:", "                while False:"))
     add(_m("MOT34", "motor", "o executor abre o alvo sem tirar as aspas externas (conta diferente da validação)", "F2: executor e validação usam a mesma normalização do alvo",
            IS, "        exe = normalized_app_target(target)", '        exe = str(target or "").strip()'))
     add(_m("MOT35", "motor", "o executor deixa de recusar o alvo vazio de abrir aplicativo", "F2: sem programa a abrir, o executor recusa",
@@ -1153,6 +1172,12 @@ def catalogo() -> list[Mutante]:
            PRJ, 'dst.setdefault(m.name, []).append((current,self._size(current), label or "Alteração"))', "pass"))
     add(_m("PER16", "persistencia", "as configurações antigas (settings.json) migradas não são renomeadas", "migração de settings.json acontece uma vez",
            PRJ, "                legacy.rename(legacy.with_suffix('.json.migrado'))", "                pass"))
+    add(_m("PER17", "persistencia", "uma configuração que não é JSON é descartada na leitura (em vez de ficar como texto)", "caminho gravado sem aspas por versão antiga continua valendo",
+           PRJ, "            except Exception: self._data[key] = value", "            except Exception: pass"))
+    add(_m("PER18", "persistencia", "a migração do padrão antigo derruba a leitura quando não consegue regravar", "ler as configurações nunca falha por causa da regravação",
+           PRJ, L("                    self.save()", "                except Exception:"), L("                    self.save()", "                except ZeroDivisionError:")))
+    add(_m("PER19", "persistencia", "o tamanho de um snapshot que não serializa deixa de contar 4096 bytes", "o histórico não quebra com um snapshot que não serializa",
+           PRJ, "            return 4096", "            return 0"))
 
     # ---------------------------------------------------------------------------------------------- editor de comandos (2.07)
     i = INTERFACE
