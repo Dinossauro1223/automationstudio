@@ -304,6 +304,82 @@ def test_nova_execucao_para_a_anterior_antes_de_comecar(make_engine, hook_backen
     assert len(fins) == 1  # só o mapa curto terminou naturalmente
 
 
+@pytest.mark.parametrize("repeticoes", [1, -1], ids=["uma-passada", "repete-sem-parar"])
+def test_executar_logo_depois_de_parar_sem_esperar_a_thread_antiga_sai_antes_da_nova_comecar(make_engine, hook_backend, repeticoes):
+    # Achado desta rodada. O botão "Parar" chama `stop()` sem esperar (wait=False): o estado volta a IDLE com a thread
+    # antiga ainda viva, no instante em que ela estava no meio de um envio. Se `run()` viesse nessa janela, ele limpava o
+    # pedido de parada ANTES de a thread antiga vê-lo, e ela seguia tocando o mapa antigo ao lado do novo (com repetição
+    # infinita, para sempre) e soltava, no fim, as teclas da execução nova, que dividem o mesmo registro de teclas.
+    # O gancho prende a thread antiga logo depois do key_down de A; um temporizador a solta 0,15 s depois, quando
+    # `run()` já foi chamado. O resultado esperado não depende de quem chega primeiro, só de `run()` esperar a saída.
+    motor, backend = make_engine(backend=hook_backend)
+    dentro, liberar = threading.Event(), threading.Event()
+    hook_backend.hooks[1] = lambda: (dentro.set(), liberar.wait(10))
+    motor.run(make_map([key("A", 0.0, 5.0)], repeat_count=repeticoes, name="Antigo"))
+    assert dentro.wait(10)
+    antiga = motor._thread
+    try:
+        motor.stop()  # como o botão: sem esperar a thread
+        assert motor.state.state == State.IDLE and antiga.is_alive(), "o cenário exige a thread antiga ainda viva"
+        threading.Timer(0.15, liberar.set).start()
+        motor.run(make_map([key("B", 0.0, 0.1)], name="Novo"))
+        assert not antiga.is_alive(), "a thread da execução anterior ainda estava viva quando a nova começou"
+        join_engine(motor)
+        assert events_of(backend) == [(0.0, "key_down", "A"), (0.0, "key_up", "A"), (0.0, "key_down", "B"), (0.1, "key_up", "B")]
+        assert motor.state.state == State.IDLE
+    finally:
+        motor._stop_requested.set()  # se o motor regredir, não deixa uma thread infinita rodando pelo resto da suíte
+        liberar.set()
+
+
+def test_se_a_thread_antiga_nao_sai_o_run_nao_trava_para_sempre(make_engine, hook_backend):
+    # Limite conhecido, fixado aqui: a espera pela thread antiga tem prazo. Presa dentro do backend por mais que isso,
+    # ela não pode travar a janela: `run()` volta depois do prazo e a execução nova começa (a thread presa, ao acordar,
+    # ainda vê o pedido de parada limpo e é o caso que o prazo não resolve; quem trava no backend é problema do backend).
+    motor, backend = make_engine(backend=hook_backend)
+    dentro, liberar = threading.Event(), threading.Event()
+    hook_backend.hooks[1] = lambda: (dentro.set(), liberar.wait(8))
+    motor.run(make_map([key("A", 0.0, 5.0)], name="Presa"))
+    assert dentro.wait(10)
+    antiga = motor._thread
+    try:
+        motor.stop()
+        comeco = time.monotonic()
+        motor.run(make_map([key("B", 0.0, 0.1)], name="Nova"))
+        espera = time.monotonic() - comeco
+        assert antiga.is_alive(), "o cenário exige a thread antiga presa"
+        assert espera < 5.0, f"run() ficou {espera:.1f} s esperando uma thread presa"
+        assert motor.state.state in (State.RUNNING, State.IDLE)
+    finally:
+        motor._stop_requested.set()
+        liberar.set()
+        join_engine(motor)
+        antiga.join(10)
+
+
+def test_executar_de_dentro_do_proprio_motor_nao_espera_por_si_mesmo(make_engine):
+    # `run()` chamado pela thread do motor (um observador de fim, como o encadeamento) não pode esperar a própria
+    # thread: `Thread.join` nela levanta RuntimeError e o observador, que o motor protege com try/except, perderia a
+    # segunda execução em silêncio.
+    motor, backend = make_engine()
+    segundo, erros = threading.Event(), []
+
+    def ao_terminar():
+        try:
+            if not segundo.is_set():
+                segundo.set()
+                motor.run(make_map([key("B", 0.0, 0.1)], name="Segundo"))
+        except Exception as exc:  # noqa: BLE001 - o teste quer ver qualquer falha
+            erros.append(exc)
+
+    motor.on_finished.append(ao_terminar)
+    terminou, falhas = run_to_end(motor, make_map([key("A", 0.0, 0.1)], name="Primeiro"))
+    assert terminou and not falhas
+    join_engine(motor)  # a thread do segundo mapa, que o observador começou de dentro da thread do primeiro
+    assert erros == []
+    assert events_of(backend) == [(0.0, "key_down", "A"), (0.1, "key_up", "A"), (0.1, "key_down", "B"), (0.2, "key_up", "B")]
+
+
 # --------------------------------------------------------------------------------------------- erros
 def test_erro_do_backend_solta_o_que_estava_pressionado_e_volta_a_idle(make_engine, fake_clock):
     class FalhaNoB(MockInputBackend):

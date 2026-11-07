@@ -1100,6 +1100,7 @@ class ExecutionEngine:
 
         if self.state.state in (State.RUNNING, State.PAUSED):
             self.stop(wait=True)
+        self._wait_previous_thread()
 
         with self._lock:
             self._current_map = automation_map
@@ -1111,6 +1112,23 @@ class ExecutionEngine:
         self.state.transition_to(State.RUNNING)
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
+
+    def _wait_previous_thread(self, timeout: float = 1.0) -> None:
+        """Espera a thread da execução anterior sair antes de começar outra (execução exclusiva, item 9).
+
+        `stop()` sem espera (o botão Parar) devolve o estado a IDLE com a thread antiga ainda viva, e `run()` limpa o
+        pedido de parada: se a thread ainda não o tivesse visto, ela seguiria tocando o mapa antigo ao lado do novo (com
+        repetição infinita, para sempre) e soltaria, ao sair, as teclas da execução nova, que dividem o mesmo registro de
+        teclas pressionadas. A thread que já recebeu o pedido sai em milissegundos, então a espera quase nunca é sentida.
+        O prazo evita travar a janela se ela estiver presa no backend; nesse caso a execução nova começa mesmo assim.
+        `run()` chamado pela própria thread do motor (um observador de fim, o encadeamento) não espera por si mesmo:
+        `join` nela levantaria RuntimeError."""
+        previous = self._thread
+        if previous is None or previous is threading.current_thread() or not previous.is_alive():
+            return
+        previous.join(timeout=timeout)
+        if previous.is_alive():
+            _append_runtime_log(f"ENGINE_RUN a thread da execução anterior não saiu em {timeout:g}s; a nova começa mesmo assim")
 
     def pause(self) -> bool:
         """Pausa a execução. Devolve True se pausou; False se não havia execução em andamento (parado, gravando, parando ou

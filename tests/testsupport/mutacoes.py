@@ -532,7 +532,7 @@ def catalogo() -> list[Mutante]:
     add(_m("MOT23", "motor", "pausa feita durante uma barreira não segura o input", "pausa durante a espera não envia input",
            IS, "        released = self._apply_wait_conditions(event) and self._checkpoint()", "        released = self._apply_wait_conditions(event)"))
     add(_m("MOT24", "motor", "uma nova execução não para a anterior", "execução exclusiva",
-           IS, L("            self.stop(wait=True)", "", "        with self._lock:"), L("            pass", "", "        with self._lock:")))
+           IS, L("            self.stop(wait=True)", "        self._wait_previous_thread()"), L("            pass", "        self._wait_previous_thread()")))
     add(_m("MOT25", "motor", "mapa inválido é executado", "mapa inválido levanta e não muda o estado",
            IS, L("        errors = automation_map.validate()", "        if errors:"), L("        errors = automation_map.validate()", "        if False:")))
     add(_m("MOT26", "motor", "mapa sem comandos inicia uma execução", "mapa sem comandos não inicia nada",
@@ -1135,6 +1135,14 @@ def catalogo() -> list[Mutante]:
            L("        if False:", '            raise RuntimeError("Nenhum aplicativo foi definido para abrir.")')))
     add(_m("W3222", "win32", "o backend Win32 aceita um terceiro botão lateral que a lista oficial não tem", "F2: validação e backend concordam nos nomes de botão",
            IS, '{"x1": self.XBUTTON1, "x2": self.XBUTTON2}', '{"x1": self.XBUTTON1, "x2": self.XBUTTON2, "x3": self.XBUTTON2}'))
+    add(_m("MOT36", "motor", "executar logo depois de parar sem esperar não espera a thread antiga sair", "a thread da execução anterior sai antes de a nova começar (botão Parar + Executar)",
+           IS, L("            self.stop(wait=True)", "        self._wait_previous_thread()"), "            self.stop(wait=True)", ocorrencia=1, total=1))
+    add(_m("MOT37", "motor", "executar de dentro da thread do motor espera por si mesmo", "o encadeamento (run() chamado pela própria thread do motor) não se espera",
+           IS, "        if previous is None or previous is threading.current_thread() or not previous.is_alive():", "        if previous is None or not previous.is_alive():"))
+    add(_m("MOT38", "motor", "a espera pela thread antiga não tem prazo", "uma thread presa no backend não trava o run() para sempre",
+           IS, "        previous.join(timeout=timeout)", "        previous.join()"))
+    add(_m("MOT39", "motor", "o prazo da espera pela thread antiga é zero", "a thread da execução anterior sai antes de a nova começar (botão Parar + Executar)",
+           IS, "    def _wait_previous_thread(self, timeout: float = 1.0) -> None:", "    def _wait_previous_thread(self, timeout: float = 0.0) -> None:"))
 
     # ---------------------------------------------------------------------------------------------- persistência
     add(_m("PER01", "persistencia", "excluir um mapa que não existe diz que excluiu", "delete_map devolve se algo foi excluído",
