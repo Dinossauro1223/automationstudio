@@ -90,14 +90,18 @@ Como os da rodada anterior, este ramo sai de `funcoes/robustez-modelo`: os dois 
 
 ## 8. O que não foi verificado
 
-- **O Windows do dono.** As janelas de corrida estão no código Python (não dependem do sistema), mas o escalonamento de threads do Windows e o prazo de 1 s da espera não foram medidos lá. O Actions roda a suíte no Windows (informativo): seção 9.
+- **O Windows do dono.** As janelas de corrida estão no código Python (não dependem do sistema), mas o escalonamento de threads do Windows e o prazo de 1 s da espera não foram medidos lá. O Actions roda a suíte no Windows (informativo) e passou com os testes novos (seção 9), mas isso é uma máquina do GitHub e não mede a frequência da corrida nem o tempo real da espera.
 - **Os experimentos de estresse rodaram no ambiente de desenvolvimento** (Linux, Python 3.13.16, 2 CPUs). O intervalo de 1 µs é um artifício para ampliar a janela; o número com o intervalo padrão (1 em 40 000 paradas num intervalo de 4 ms ao redor do fim) mostra que acontece sem ele, mas a probabilidade por uso real é muito menor.
 - **Thread presa numa chamada do backend por mais de 1 s** continua possível (e o `run()` segue, como antes). Não reproduzi e não há o que testar sem o backend de verdade.
 - **Não toquei**: o `except` genérico do `_run_loop` continua reportando o erro mesmo quando a parada foi pedida (decisão 6); `VkKeyScan` sem `restype` (Windows) segue para o Ponto 5, sem como verificar fora do Windows.
 
 ## 9. Resultado do Actions
 
-(preenchido num commit à parte, depois de publicar)
+**GitHub Actions** (Qt de verdade, PySide6 6.12.0), execução 42322092748, disparada à mão no commit `2578019` (a ponta do ramo na hora: a árvore de código é a dos commits 1 a 3, e os outros dois só alteram documentos) em 06/11/2026:
+- **Linux** (Python 3.14.10, pytest 9.2.0): passo comum com **2018 passam, 11 pulados, 3 xfail** (51 s); janela principal, um processo por teste, **44 de 44**; sucesso.
+- **Windows** (Python 3.14.10, informativo): passo comum com **2017 passam, 12 pulados, 3 xfail** (71 s); janela principal **44 de 44**; sucesso.
+- Em relação à execução do ramo anterior (`funcoes/robustez-modelo`: Linux 1998, Windows 1997, 3 xfail nas duas), os passam sobem **20 nos dois**, que é exatamente a conta dos testes novos (4 + 10 + 6), e os **pulados não mudaram** (11 e 12): nenhum teste novo foi pulado, nem o das corridas nem os da varredura, que aqui rodaram com o Python 3.14 e com o escalonador de threads do Linux e do Windows. Os 3 xfail são os mesmos de antes (achados 2.03 e 2.04 da persistência e a F4 da visão, fase 7.A).
+- A diferença de um teste entre Linux e Windows (2018 contra 2017, 11 contra 12 pulados) já existia: é `tests/unit/test_e2e_ambientes.py`, que só vale fora do Windows.
 
 ## 10. Para a integração
 
