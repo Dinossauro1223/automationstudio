@@ -512,7 +512,8 @@ def catalogo() -> list[Mutante]:
     add(_m("MOT15", "motor", "parar com o motor pausado não o acorda (a thread nunca vê a parada)", "parada com o motor pausado",
            IS, "        self._pause_event.set()  # libera thread caso esteja pausada, para ela poder checar o stop", "        pass"))
     add(_m("MOT16", "motor", "erro de execução não solta o que estava pressionado", "erro do backend solta o que estava pressionado",
-           IS, L("            self._release_all()", "            self.state.transition_to(State.ERROR)"), "            self.state.transition_to(State.ERROR)"))
+           IS, L("            self._release_all()", "            self._transition_if_possible(State.ERROR)  # a parada de outra thread pode ter terminado antes: o erro ainda é avisado"),
+           "            self._transition_if_possible(State.ERROR)  # a parada de outra thread pode ter terminado antes: o erro ainda é avisado"))
     add(_m("MOT17", "motor", "comando que espera processo só espera quando é abrir-aplicativo", "barreira de processo antes do input",
            IS, "        elif event.wait_process:", "        elif False:"))
     add(_m("MOT18", "motor", "o PID do aplicativo recém-aberto não é repassado à espera", "abrir aplicativo + barreira",
@@ -545,7 +546,7 @@ def catalogo() -> list[Mutante]:
     add(_m("MOT29", "motor", "o fim natural não solta o que ficou pressionado", "tecla presa em comando 'manter pressionado' é solta no fim",
            IS, L("    def _finish(self, natural_end: bool) -> None:", "        self._release_all()"), L("    def _finish(self, natural_end: bool) -> None:", "        pass")))
     add(_m("MOT30", "motor", "stop() não devolve o motor a IDLE", "estados depois de parar",
-           IS, L("        self._release_all()", "        if self.state.state == State.STOPPING:", "            self.state.transition_to(State.IDLE)"), "        self._release_all()"))
+           IS, L("        self._release_all()", "        if self.state.state == State.STOPPING:", "            self._transition_if_possible(State.IDLE)"), "        self._release_all()"))
     add(_m("MOT31", "motor", "stop() com o motor ocioso tenta mudar de estado", "parar com o motor ocioso não faz nada",
            IS, L("        if self.state.state in (State.IDLE,):", "            return"), L("        if False:", "            return")))
     add(_m("MOT32", "motor", "pausar fora de execução levanta transição inválida", "pausa e retomada fora de execução são ignoradas",
@@ -1143,6 +1144,30 @@ def catalogo() -> list[Mutante]:
            IS, "        previous.join(timeout=timeout)", "        previous.join()"))
     add(_m("MOT39", "motor", "o prazo da espera pela thread antiga é zero", "a thread da execução anterior sai antes de a nova começar (botão Parar + Executar)",
            IS, "    def _wait_previous_thread(self, timeout: float = 1.0) -> None:", "    def _wait_previous_thread(self, timeout: float = 0.0) -> None:"))
+    add(_m("MOT40", "motor", "parar no instante em que a execução termina sozinha levanta transição inválida", "a parada que perde a corrida para o fim natural não levanta (nem a de emergência)",
+           IS, L("        if self.state.state in (State.RUNNING, State.PAUSED):", "            self._transition_if_possible(State.STOPPING)"),
+           L("        if self.state.state in (State.RUNNING, State.PAUSED):", "            self.state.transition_to(State.STOPPING)")))
+    add(_m("MOT41", "motor", "duas paradas ao mesmo tempo: a que chega ao ocioso depois levanta transição inválida", "a troca final de `stop()` aceita que o estado já seja ocioso",
+           IS, L("        if self.state.state == State.STOPPING:", "            self._transition_if_possible(State.IDLE)"),
+           L("        if self.state.state == State.STOPPING:", "            self.state.transition_to(State.IDLE)")))
+    add(_m("MOT42", "motor", "o fim natural que perde a corrida para a parada levanta na troca para parando (a thread do motor morre)", "`_finish` não levanta se uma parada mudou o estado",
+           IS, L("            if self.state.state != State.STOPPING:", "                self._transition_if_possible(State.STOPPING)"),
+           L("            if self.state.state != State.STOPPING:", "                self.state.transition_to(State.STOPPING)")))
+    add(_m("MOT43", "motor", "o fim natural que perde a corrida para a parada levanta na troca para ocioso (a thread do motor morre)", "`_finish` não levanta se uma parada já deixou o estado ocioso",
+           IS, L("                self._transition_if_possible(State.STOPPING)", "            self._transition_if_possible(State.IDLE)"),
+           L("                self._transition_if_possible(State.STOPPING)", "            self.state.transition_to(State.IDLE)")))
+    add(_m("MOT44", "motor", "o mapa seguinte começa mesmo com uma parada pedida no instante do fim", "parada pedida no instante do fim cancela o encadeamento",
+           IS, "        if natural_end and not self._stop_requested.is_set() and self._current_map is not None and self._current_map.next_map:",
+           "        if natural_end and self._current_map is not None and self._current_map.next_map:"))
+    add(_m("MOT45", "motor", "a troca de estado tolerante a corrida deixa de ser tolerante", "uma troca que perdeu a corrida não levanta",
+           IS, L("            self.state.transition_to(target)", "        except core.InvalidStateTransition:", "            return False"),
+           L("            self.state.transition_to(target)", "        except core.InvalidStateTransition:", "            raise")))
+    add(_m("MOT46", "motor", "erro de execução no instante da parada: a troca para ERROR levanta e a thread do motor morre sem avisar o erro", "o tratador de erro da execução aceita que a parada já deixou o estado ocioso",
+           IS, "            self._transition_if_possible(State.ERROR)  # a parada de outra thread pode ter terminado antes: o erro ainda é avisado",
+           "            self.state.transition_to(State.ERROR)  # a parada de outra thread pode ter terminado antes: o erro ainda é avisado"))
+    add(_m("MOT47", "motor", "espera por aplicativo que falha no instante da parada: a troca para ERROR levanta e a thread do motor morre", "o tratador da espera por aplicativo aceita que a parada já deixou o estado ocioso",
+           IS, "            self._transition_if_possible(State.ERROR)  # uma parada que terminou agora já deixou o estado ocioso",
+           "            self.state.transition_to(State.ERROR)  # uma parada que terminou agora já deixou o estado ocioso"))
 
     # ---------------------------------------------------------------------------------------------- persistência
     add(_m("PER01", "persistencia", "excluir um mapa que não existe diz que excluiu", "delete_map devolve se algo foi excluído",
