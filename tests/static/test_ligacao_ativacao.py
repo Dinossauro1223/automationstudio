@@ -22,7 +22,12 @@ LIGACOES = {
     "_on_hotkey_triggered": ("acao_permitida",),
     "_delete_current_map": ("esquecer",),
     "_refresh_map_config_labels": ("atualizar_painel", "rotulo_da_tecla"),
-    "_configure_current_map": ("mudar_tecla",),
+    "_configure_current_map": ("mudar_tecla", "sugerir_tecla"),
+    # 25.9 (T1): a tecla de uma automação nova, e da demonstração, é a primeira combinação livre de Ctrl+Shift+Alt+n (nunca o "=" que
+    # não dispara); a tecla que a pessoa digita na demonstração passa pela mesma validação das Configurações.
+    "_new_map": ("sugerir_tecla",),
+    "_ensure_demo_automation_for_tutorial": ("sugerir_tecla",),
+    "_finish_tutorial_demo": ("mudar_tecla", "sugerir_tecla"),
 }
 
 
@@ -164,6 +169,8 @@ def test_a_guarda_vem_antes_de_executar_o_mapa_pela_tecla():
 
 def test_a_janela_nao_grava_a_tecla_no_mapa_sem_passar_pelo_controlador():
     # Quem valida, recusa (com aviso) e grava a tecla é `ControladorAtivacao.mudar_tecla` (testado sem Qt em
-    # tests/unit/test_ativacao_controlador.py). Uma atribuição direta `m.hotkey = ...` na janela pularia a validação.
-    gravacoes = linhas_que_atribuem(_fonte(), "MainWindow", "_configure_current_map", "hotkey")
-    assert gravacoes == [], f"`_configure_current_map` atribui `.hotkey` direto (linhas {gravacoes}); use self.ativacao.mudar_tecla"
+    # tests/unit/test_ativacao_controlador.py). Uma atribuição direta `m.hotkey = ...` na janela pularia a validação: as
+    # Configurações da automação e, desde a 25.9, a tecla escolhida no fim da demonstração do primeiro uso.
+    for metodo in ("_configure_current_map", "_finish_tutorial_demo"):
+        gravacoes = linhas_que_atribuem(_fonte(), "MainWindow", metodo, "hotkey")
+        assert gravacoes == [], f"`{metodo}` atribui `.hotkey` direto (linhas {gravacoes}); use self.ativacao.mudar_tecla"

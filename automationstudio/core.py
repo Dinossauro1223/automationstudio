@@ -788,6 +788,8 @@ class AutomationMap:
         _sync_id_counter([c.id for c in self.commands] + list(self.groups))
         # Toda automação nova começa com "=" como tecla de iniciação.
         # Também migra mapas antigos que foram salvos sem tecla definida.
+        # (25.9: a janela dá a uma automação nova a primeira combinação livre de Ctrl+Shift+Alt+1, 2, 3 …; o "=" do modelo só
+        # fica para o mapa sem tecla, e ele nunca dispara porque o monitor não entrega símbolos: md/ESPEC_TECLADO_25_9.md, A1.)
         if not self.hotkey:
             self.hotkey = "="
         # Corrige silenciosamente IDs duplicados herdados de versões anteriores.

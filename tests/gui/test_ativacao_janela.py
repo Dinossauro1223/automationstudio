@@ -87,6 +87,7 @@ def test_a_janela_abre_mesmo_com_a_ativacao_corrompida_no_banco(abrir_janela, le
 def test_primeiro_uso_a_automacao_de_demonstracao_nasce_ativa_so_nesta_sessao(abrir_janela):                                # ATV-03
     janela = abrir_janela(pular_tutorial=False)
     assert janela.ativacao.descrever("Exemplo — Primeira automação").estado == "sessao"
+    assert janela.project_manager.maps["Exemplo — Primeira automação"].hotkey == "CTRL+SHIFT+ALT+1", "25.9: a primeira automação nasce na combinação padrão"
     assert AppSettings(janela.project_manager.project_dir).get_map_activation()["prefs"] == {"Exemplo — Primeira automação": "desativado"}
 
 
@@ -102,23 +103,25 @@ def test_a_lista_marca_cada_automacao_com_o_estado_e_a_dica(abrir_janela, legacy
 
 
 # ------------------------------------------------------------------------------------------------ criar, importar, excluir
-def test_automacao_criada_nasce_ativa_so_nesta_sessao_e_a_segunda_com_a_mesma_tecla_nasce_desativada(abrir_janela, monkeypatch, gui):   # ATV-03 / HK-01
+def test_automacao_criada_nasce_ativa_so_nesta_sessao_com_a_primeira_combinacao_livre_e_a_proxima_recebe_a_seguinte(abrir_janela, monkeypatch, gui):   # ATV-03 / TEC-12
     janela = abrir_janela()
     _exigir_atalhos(janela)
-    _nova_automacao(janela, monkeypatch, "Um")  # a tecla padrão de uma automação nova é "="
-    assert janela.ativacao.descrever("Um").estado == "sessao" and parse_combo("=") in _combos(janela)
+    um = _nova_automacao(janela, monkeypatch, "Um")  # 25.9: a tecla de uma automação nova é a primeira combinação livre
+    assert um.hotkey == "CTRL+SHIFT+ALT+1"
+    assert janela.ativacao.descrever("Um").estado == "sessao" and parse_combo("CTRL+SHIFT+ALT+1") in _combos(janela)
     antes = len(gui.calls)
-    _nova_automacao(janela, monkeypatch, "Dois")
-    assert janela.ativacao.descrever("Dois").estado == "desativado"
-    avisos = _avisos(gui, antes)
-    assert avisos and avisos[0][1] == "Atalho em conflito" and "“Dois”" in avisos[0][2] and "“Um”" in avisos[0][2], gui.calls[antes:]
+    dois = _nova_automacao(janela, monkeypatch, "Dois")
+    assert dois.hotkey == "CTRL+SHIFT+ALT+2", "a segunda não repete a tecla da primeira"
+    assert janela.ativacao.descrever("Dois").estado == "sessao" and parse_combo("CTRL+SHIFT+ALT+2") in _combos(janela)
+    assert _avisos(gui, antes) == [], "sem conflito: nenhuma das duas nasce desativada"
+    assert {parse_combo("CTRL+SHIFT+ALT+1"), parse_combo("CTRL+SHIFT+ALT+2")} <= _combos(janela)
 
 
 def test_importar_automacao_com_tecla_ocupada_nasce_desativada_e_avisa(abrir_janela, monkeypatch, gui, tmp_path):             # ATV-03 / HK-01
     janela = abrir_janela()
-    _nova_automacao(janela, monkeypatch, "Um")
+    um = _nova_automacao(janela, monkeypatch, "Um")
     arquivo = tmp_path / "externo.json"
-    arquivo.write_text(map_to_json(AutomationMap(name="Externo", hotkey="=", repeat_count=1)), encoding="utf-8")
+    arquivo.write_text(map_to_json(AutomationMap(name="Externo", hotkey=um.hotkey, repeat_count=1)), encoding="utf-8")
     monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(arquivo), "")))
     antes = len(gui.calls)
     janela._import_map()
@@ -139,22 +142,22 @@ def test_excluir_a_automacao_apaga_a_preferencia_gravada(abrir_janela, monkeypat
 def test_a_faixa_fica_no_editor_logo_abaixo_do_titulo_e_muda_o_estado(abrir_janela, monkeypatch):                              # ATV-05
     janela = abrir_janela()
     _exigir_atalhos(janela)
-    _nova_automacao(janela, monkeypatch, "Mapa")
+    mapa = _nova_automacao(janela, monkeypatch, "Mapa")
     faixa = janela.ativacao.painel
     layout = janela._editor_page.layout()
     assert faixa is not None and layout.indexOf(faixa) == layout.indexOf(janela.map_instruction) + 1
     assert janela.map_instruction.parentWidget() is janela._editor_page, "a âncora da faixa é filha direta da página do editor"
     assert faixa.combo.currentData() == "sessao"
     faixa.combo.setCurrentIndex(ESTADOS.index("desativado"))
-    assert parse_combo("=") not in _combos(janela), "desativar tira a tecla do gerente de atalhos"
+    assert parse_combo(mapa.hotkey) not in _combos(janela), "desativar tira a tecla do gerente de atalhos"
     assert AppSettings(janela.project_manager.project_dir).get_map_activation()["prefs"]["Mapa"] == "desativado"
-    assert janela.hotkey_label.text() == "Tecla para iniciar/parar: = (desativada)"
+    assert janela.hotkey_label.text() == f"Tecla para iniciar/parar: {mapa.hotkey} (desativada)"
 
 
 def test_o_rotulo_da_tecla_no_editor_continua_curto_enquanto_a_tecla_funciona(abrir_janela, monkeypatch):
     janela = abrir_janela()
     _nova_automacao(janela, monkeypatch, "Mapa")
-    assert janela.hotkey_label.text() == "Tecla para iniciar/parar: ="
+    assert janela.hotkey_label.text() == "Tecla para iniciar/parar: CTRL+SHIFT+ALT+1"
 
 
 # ------------------------------------------------------------------------------------------------ MAP-03 com o motor
@@ -197,17 +200,83 @@ def test_a_parada_de_emergencia_continua_com_a_tecla_mesmo_que_um_mapa_use_a_mes
 def test_mudar_a_tecla_para_uma_ocupada_e_recusado_mas_o_resto_da_configuracao_segue(abrir_janela, monkeypatch, gui):             # HK-01
     janela = abrir_janela()
     _exigir_atalhos(janela)
-    _nova_automacao(janela, monkeypatch, "Um")  # "="
-    dois = _nova_automacao(janela, monkeypatch, "Dois")  # nasce desativada (a tecla é do "Um")
-    dois.hotkey = "F6"
+    um = _nova_automacao(janela, monkeypatch, "Um")  # CTRL+SHIFT+ALT+1
+    dois = _nova_automacao(janela, monkeypatch, "Dois")  # CTRL+SHIFT+ALT+2
+    dois.hotkey = "F6"  # como um dado antigo: a tela nova recusaria esta tecla, mas ela continua valendo
     janela.project_manager.save_map(dois)
     assert janela.ativacao.definir_estado("Dois", "sessao") is True
-    _responder_configuracao(monkeypatch, "=")
+    _responder_configuracao(monkeypatch, um.hotkey)
     antes = len(gui.calls)
     janela._configure_current_map()
     assert dois.hotkey == "F6", "a tecla anterior permanece"
     avisos = _avisos(gui, antes)
     assert avisos and avisos[0][1] == "Tecla não alterada" and "“Um”" in avisos[0][2] and "continua “F6”" in avisos[0][2], gui.calls[antes:]
-    _responder_configuracao(monkeypatch, "F7")
+    _responder_configuracao(monkeypatch, "CTRL+SHIFT+ALT+7")
     janela._configure_current_map()
-    assert dois.hotkey == "F7" and parse_combo("F7") in _combos(janela) and parse_combo("F6") not in _combos(janela)
+    assert dois.hotkey == "CTRL+SHIFT+ALT+7" and parse_combo("CTRL+SHIFT+ALT+7") in _combos(janela) and parse_combo("F6") not in _combos(janela)
+
+
+# ------------------------------------------------------------------------------------------------ 25.9 (T1): teclas reservadas
+def _capturar_pergunta_da_tecla(monkeypatch, resposta):
+    """Responde "⚙ Configurações da automação" como `_responder_configuracao`, mas escolhendo "Teclado" em "Como iniciar/parar"
+    (para a pergunta da tecla aparecer) e guardando o que ela mostrou."""
+    _responder_configuracao(monkeypatch, resposta)
+    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(
+        lambda parent, titulo, rotulo, itens, atual=0, editavel=False: (itens[0] if titulo.startswith("Como iniciar") else itens[atual], True)))
+    vistos = []
+    monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: (vistos.append((a, k)), (resposta, True))[1]))
+    return vistos
+
+
+def test_uma_tecla_reservada_digitada_na_configuracao_e_recusada_com_o_motivo_e_o_resto_segue(abrir_janela, monkeypatch, gui):   # TEC-11
+    janela = abrir_janela()
+    mapa = _nova_automacao(janela, monkeypatch, "Mapa")
+    antes_da_tecla = mapa.hotkey
+    _responder_configuracao(monkeypatch, "CTRL+T")
+    antes = len(gui.calls)
+    janela._configure_current_map()
+    assert mapa.hotkey == antes_da_tecla, "a tecla anterior permanece"
+    avisos = _avisos(gui, antes)
+    assert avisos and avisos[0][1] == "Tecla não alterada" and "abre uma nova aba do navegador" in avisos[0][2], gui.calls[antes:]
+    assert "Sugestão: CTRL+SHIFT+ALT+2." in avisos[0][2], "a sugestão pula a combinação que o próprio mapa já usa"
+
+
+def test_deixar_a_pergunta_da_tecla_em_branco_diz_que_nenhuma_tecla_foi_digitada_e_mantem_a_do_mapa(abrir_janela, monkeypatch, gui):  # D11
+    janela = abrir_janela()
+    mapa = _nova_automacao(janela, monkeypatch, "Mapa")
+    antes_da_tecla = mapa.hotkey
+    _responder_configuracao(monkeypatch, "")
+    antes = len(gui.calls)
+    janela._configure_current_map()
+    assert mapa.hotkey == antes_da_tecla, 'vazio não vira "=" (tecla que nunca dispara): a tecla anterior permanece'
+    avisos = _avisos(gui, antes)
+    assert avisos and avisos[0][1] == "Tecla não alterada" and "Nenhuma tecla foi digitada" in avisos[0][2], gui.calls[antes:]
+
+
+def test_a_pergunta_da_tecla_sugere_uma_combinacao_livre_e_nao_o_sinal_de_igual(abrir_janela, monkeypatch):       # D11
+    janela = abrir_janela()
+    mapa = _nova_automacao(janela, monkeypatch, "Mapa")
+    mapa.hotkey = "MOUSE_X1"  # sem tecla de teclado: a pergunta abre com o que for sugerido
+    janela.project_manager.save_map(mapa)
+    vistos = _capturar_pergunta_da_tecla(monkeypatch, "CTRL+SHIFT+ALT+5")
+    janela._configure_current_map()
+    assert vistos, "a pergunta da tecla foi feita"
+    argumentos, nomeados = vistos[0]
+    assert nomeados.get("text") == "CTRL+SHIFT+ALT+1" and "CTRL+SHIFT+ALT+1" in argumentos[2], vistos
+    assert "=, F6 ou CTRL+F6" not in argumentos[2], "o exemplo antigo é de teclas que a regra recusa"
+
+
+def test_o_botao_lateral_do_mouse_escolhido_na_configuracao_vale_com_o_aviso_na_barra_de_status(abrir_janela, monkeypatch):
+    janela = abrir_janela()
+    mapa = _nova_automacao(janela, monkeypatch, "Mapa")
+    # Só a pergunta "Como iniciar/parar" muda de resposta (o lateral 1 do mouse); nas outras vale o que já estava.
+    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(
+        lambda parent, titulo, rotulo, itens, atual=0, editavel=False:
+        (next(i for i in itens if "(X1)" in i) if titulo.startswith("Como iniciar") else itens[atual], True)))
+    monkeypatch.setattr(QInputDialog, "getInt", staticmethod(lambda parent, titulo, rotulo, valor=0, *a, **k: (valor, True)))
+    monkeypatch.setattr(QInputDialog, "getDouble", staticmethod(lambda parent, titulo, rotulo, valor=0.0, *a, **k: (valor, True)))
+    mensagens, original = [], janela.status_bar.showMessage
+    monkeypatch.setattr(janela.status_bar, "showMessage", lambda texto, prazo=0: (mensagens.append(texto), original(texto, prazo))[1])
+    janela._configure_current_map()
+    assert mapa.hotkey == "MOUSE_X1"
+    assert any("Voltar e Avançar" in m for m in mensagens), mensagens

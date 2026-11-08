@@ -776,10 +776,11 @@ def catalogo() -> list[Mutante]:
            L("        if False:", "            return recusa_de_tecla_invalida(tecla, nome, atual)")))
     add(_m("ATV34", "ativacao", "mudar a tecla de uma automação desativada para uma tecla ocupada passa a ser recusado",
            "um mapa desativado não conflita: o conflito é conferido ao ativar", ATU,
-           L("        if not logica.esta_ativo(nome):", '            return ""'), L("        if False:", '            return ""')))
+           "        if logica.esta_ativo(nome):", "        if True:"))
     add(_m("ATV35", "ativacao", "mudar a tecla de uma automação ativa para uma tecla ocupada é aceito",
            "HK-01: a mudança de tecla para uma tecla ocupada é recusada", ATU,
-           '        return recusa_de_tecla(conflito, atual) if conflito is not None else ""', '        return ""'))
+           L("            if conflito is not None:", "                return recusa_de_tecla(conflito, atual)"),
+           L("            if False:", "                return recusa_de_tecla(conflito, atual)")))
     add(_m("ATV36", "ativacao", "o controlador continua com as configurações antigas depois que a pasta de dados muda",
            "o estado é o do banco da pasta de dados atual", ATU,
            "        if self._logica is None or ajustes is not self._ajustes:", "        if self._logica is None:"))
@@ -864,7 +865,82 @@ def catalogo() -> list[Mutante]:
 
 
     # ---------------------------------------------------------------------------------------------- teclas de automação (25.9, T1)
-    # Os nomes de tecla do monitor: F13 a F24 e as teclas pelo código virtual. O teste é tests/engine/test_monitor.py.
+    # As regras (atalhos_reservados.py) e os nomes de tecla do monitor. Cada regra tem o defeito que a desliga; os testes são
+    # tests/unit/test_atalhos_reservados.py e tests/engine/test_monitor.py.
+    RES = "automationstudio/atalhos_reservados.py"
+    add(_m("TEC01", "teclas", "o catálogo de atalhos do Windows e dos navegadores deixa de ser consultado",
+           "TEC-11: Ctrl+T, Alt+F4 e os demais atalhos conhecidos são recusados com o que fazem", RES,
+           "    motivo = _CATALOGO_POR_COMBO.get(frozenset(principais | efetivos))", "    motivo = None"))
+    add(_m("TEC02", "teclas", "o catálogo recusa tudo o que CONTÉM um atalho conhecido (Ctrl+Shift+Alt+T seria recusada por conter Ctrl+T)",
+           "TEC-11: o catálogo compara combinações inteiras, e as três teclas modificadoras continuam livres", RES,
+           "    motivo = _CATALOGO_POR_COMBO.get(frozenset(principais | efetivos))",
+           "    motivo = next((m for c, m in _CATALOGO_POR_COMBO.items() if c <= frozenset(principais | efetivos)), None)"))
+    add(_m("TEC03", "teclas", "qualquer combinação com a tecla Windows passa a ser aceita",
+           "TEC-11: a tecla Windows é recusada (o Windows usa para os atalhos dele)", RES,
+           '    if "WIN" in efetivos:', "    if False:"))
+    add(_m("TEC04", "teclas", "o AltGr deixa de valer como Ctrl+Alt (Ctrl+Alt+Delete escrita com AltGr passaria)",
+           "TEC-11: o AltGr que o monitor informa é Ctrl+Alt para as regras", RES,
+           '    efetivos = (modificadores - {"ALTGR"}) | ({"CTRL", "ALT"} if "ALTGR" in modificadores else set())',
+           "    efetivos = set(modificadores)"))
+    add(_m("TEC05", "teclas", "só teclas modificadoras (Ctrl+Shift) passam a ser aceitas",
+           "TEC-11: uma combinação sem tecla é recusada", RES, "    if not principais:", "    if False:"))
+    add(_m("TEC06", "teclas", "letra, número, Espaço e Enter sozinhos passam a ser aceitos como tecla de automação",
+           "TEC-11: tecla de digitar ou navegar, sozinha, é recusada", RES,
+           '        if "digitar" in classes.values():', "        if False:"))
+    add(_m("TEC07", "teclas", "F1 a F12 sem modificador passam a ser aceitas",
+           "TEC-11: F1 a F12 têm função própria nos programas e são recusadas sozinhas", RES,
+           '        if "f_baixa" in classes.values():', "        if False:"))
+    add(_m("TEC08", "teclas", "F13 a F24 deixam de ser teclas livres",
+           "TEC-11: F13 a F24 são as teclas seguras para uma automação", RES,
+           '    if "f_alta" in classes.values():', "    if False:"))
+    add(_m("TEC09", "teclas", "os botões esquerdo, direito e do meio do mouse passam a ser aceitos sozinhos",
+           "TEC-11: o botão principal do mouse é recusado (a automação começaria a cada clique, até nos dela)", RES,
+           '        if "mouse" in classes.values():', "        if False:"))
+    add(_m("TEC10", "teclas", "Ctrl ou Alt com uma só tecla (Ctrl+Q) passam a ser aceitos",
+           "TEC-11: um modificador só quase sempre colide com um atalho do programa", RES,
+           "        if len(efetivos) == 1:  # só Ctrl ou só Alt (só Shift já foi decidido acima)", "        if False:"))
+    add(_m("TEC11", "teclas", "Ctrl+Alt com letra ou número (o AltGr do ABNT2) passa a valer só com aviso",
+           "TEC-11: Ctrl+Alt+letra digita caracteres em vários teclados e é recusada", RES,
+           '            if efetivos == {"CTRL", "ALT"} and any(_digita_caractere(t) for t in teclas):', "            if False:"))
+    add(_m("TEC12", "teclas", "Ctrl+Shift+Alt com uma tecla passa a ser só um aviso",
+           "TEC-11: três modificadores são a combinação livre (padrão: Ctrl+Shift+Alt+1)", RES,
+           L('        return Avaliacao(NIVEL_LIVRE, "livre")', "    # Só botões laterais do mouse."),
+           L('        return Avaliacao(NIVEL_AVISO, "dois_modificadores", "x")', "    # Só botões laterais do mouse.")))
+    add(_m("TEC13", "teclas", "o botão lateral do mouse sozinho deixa de ter aviso",
+           "TEC-11: o lateral sozinho vale, mas com o aviso de que os navegadores o usam como Voltar e Avançar", RES,
+           "    if not efetivos:", "    if False:"))
+    add(_m("TEC14", "teclas", "um símbolo ou um nome que o monitor não produz (\"=\", CRTL) passa a ser aceito",
+           "TEC-11 e achado A1: tecla que nunca dispara é recusada", RES, "    if desconhecidas:", "    if False:"))
+    add(_m("TEC15", "teclas", "texto que não é uma combinação (\"+\") faz a avaliação levantar erro em vez de recusar",
+           "TEC-11: avaliar nunca levanta", RES,
+           L("    except ValueError:", '        return _recusa("invalida", "não é uma combinação de teclas", usadas)'),
+           L("    except KeyError:", '        return _recusa("invalida", "não é uma combinação de teclas", usadas)')))
+    add(_m("TEC16", "teclas", "Print Screen, Menu, Caps Lock e Num Lock sozinhos passam a ser aceitos",
+           "TEC-11: teclas com efeito próprio no sistema são recusadas sozinhas", RES,
+           "            if nivel == NIVEL_RECUSADA:", "            if False:"))
+    add(_m("TEC17", "teclas", "Pause e Scroll Lock sozinhos passam a valer sem aviso",
+           "TEC-11: valem, com o aviso de que alguns programas e jogos os usam", RES,
+           '            return Avaliacao(NIVEL_AVISO, "isolada", _ISOLADAS[token][1])', '            return Avaliacao(NIVEL_LIVRE, "isolada")'))
+    add(_m("TEC18", "teclas", "a sugestão pula o Ctrl+Shift+Alt+1 e começa no 2",
+           "TEC-12: a primeira automação usa Ctrl+Shift+Alt+1", RES,
+           '    ["CTRL+SHIFT+ALT+" + t for t in "1234567890"]', '    ["CTRL+SHIFT+ALT+" + t for t in "234567890"]'))
+    add(_m("TEC19", "teclas", "a sugestão ignora as teclas em uso e oferece sempre a mesma",
+           "TEC-12: a sugestão é a primeira combinação livre", RES,
+           "        if not any(usada <= combo or combo <= usada for usada in em_uso):", "        if True:"))
+    add(_m("TEC20", "teclas", "a sugestão só pula a combinação IGUAL à em uso, não as que a contêm ou estão contidas",
+           "achado A5: o gerente de atalhos dispara por subconjunto, e a sugestão não pode colidir assim", RES,
+           "        if not any(usada <= combo or combo <= usada for usada in em_uso):",
+           "        if not any(usada == combo for usada in em_uso):"))
+    add(_m("TEC21", "teclas", "a série da sugestão perde as letras (acaba na 22ª em vez de na 48ª)",
+           "TEC-12: a série tem 48 combinações (1 a 9 e 0, F1 a F12, A a Z) antes de acabar", RES,
+           L('    + [f"CTRL+SHIFT+ALT+F{n}" for n in range(1, 13)]', '    + ["CTRL+SHIFT+ALT+" + t for t in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"])'),
+           L('    + [f"CTRL+SHIFT+ALT+F{n}" for n in range(1, 13)])', "")))
+    add(_m("TEC22", "teclas", "a recusa não traz a sugestão da próxima combinação livre",
+           "TEC-12: toda recusa vem com uma sugestão", RES,
+           "    return Avaliacao(NIVEL_RECUSADA, regra, motivo, sugerir(usadas))", '    return Avaliacao(NIVEL_RECUSADA, regra, motivo, "")'))
+    add(_m("TEC23", "teclas", "o símbolo que o monitor não entrega é explicado como erro de escrita",
+           "TEC-11: o motivo diz que símbolos e pontuação ainda não funcionam, não que a pessoa escreveu errado", RES,
+           "    if len(token) == 1 and not token.isalnum():", "    if False:"))
     add(_m("TEC24", "teclas", "uma tecla que chega sem caractere útil (Ctrl+A, Shift+1) deixa de ser reconhecida pelo código virtual",
            "TEC-10: o gravador registra a tecla física quando o caractere é de controle ou símbolo", CORE,
            '    return _name_from_vk(getattr(key, "vk", None))', '    return ""'))
@@ -882,6 +958,83 @@ def catalogo() -> list[Mutante]:
     add(_m("TEC29", "teclas", "um código virtual que não é número inteiro derruba o monitor em vez de ser ignorado",
            "TEC-10: o que o monitor não entende é ignorado, nunca levanta", CORE,
            "    if isinstance(vk, bool) or not isinstance(vk, int):", "    if False:"))
+
+    # ---- as regras ligadas à ativação (ativacao.py, ativacao_ui.py) e à janela (main_window.py, protegida pelo teste estático)
+    add(_m("ATV63", "ativacao", "a tecla que o mapa JÁ TEM passa a ser recusada se for reservada (mapas antigos deixariam de salvar)",
+           "D12: manter a tecla que o mapa já tinha nunca é recusado, o que já funciona continua funcionando", ATV,
+           "    if avaliacao.nivel != NIVEL_RECUSADA or _mesma_tecla(tecla, atual):", "    if avaliacao.nivel != NIVEL_RECUSADA:"))
+    add(_m("ATV64", "ativacao", "salvar de novo a tecla que o mapa já tem repete o aviso toda vez",
+           "D12: o aviso só aparece quando a tecla muda", ATV,
+           "    if avaliacao.nivel != NIVEL_AVISO or _mesma_tecla(tecla, atual):", "    if avaliacao.nivel != NIVEL_AVISO:"))
+    add(_m("ATV65", "ativacao", "a mesma tecla escrita de outro jeito (ctrl+t / CTRL+T) deixa de contar como a mesma",
+           "D12: a comparação é de combinação, não de texto", ATV,
+           "    return tecla_valida(a) and tecla_valida(b) and parse_combo(a.strip()) == parse_combo(b.strip())",
+           "    return tecla_valida(a) and tecla_valida(b) and a.strip() == b.strip()"))
+    add(_m("ATV66", "ativacao", "a recusa por tecla reservada não diz qual tecla a automação continua usando",
+           "HK-01 e TEC-11: a recusa diz o motivo e a tecla que fica", ATV,
+           '            f"{_continua(nome, atual)}{_sugestao_de(avaliacao)}")', '            f"{_sugestao_de(avaliacao)}")'))
+    add(_m("ATV67", "ativacao", "a recusa por tecla reservada não sugere a próxima combinação livre",
+           "TEC-12: a recusa traz a sugestão", ATV,
+           '    return f" Sugestão: {avaliacao.sugestao}." if avaliacao.sugestao else ""', '    return ""'))
+    add(_m("ATV68", "ativacao", "toda tecla recusada (Ctrl+T, F6...) passa a ganhar o alerta permanente na descrição do mapa",
+           "D12b: só a tecla que NUNCA dispara tem alerta permanente; as demais funcionam", ATV,
+           '    if avaliacao.regra != "desconhecida":', "    if avaliacao.nivel != NIVEL_RECUSADA:"))
+    add(_m("ATV69", "ativacao", "a tecla que nunca dispara (o \"=\" dos mapas antigos) não ganha alerta nenhum",
+           "A1: o mapa com a tecla que não funciona diz isso e sugere outra", ATV,
+           '    if avaliacao.regra != "desconhecida":', "    if True:"))
+    add(_m("ATV70", "ativacao", "a descrição do mapa com a tecla que nunca dispara volta a dizer só que a tecla inicia e para a automação",
+           "A1: a faixa do mapa mostra o alerta e lembra que o botão Executar funciona", ATV,
+           "            if alerta:  # registrada, mas o monitor nunca a entrega: continua como estava, com o que fazer", "            if False:"))
+    add(_m("ATV71", "ativacao", "a sugestão ignora as teclas dos atalhos de controle (pausar, continuar, parada de emergência)",
+           "TEC-12: a sugestão não colide com F9, F10 e a parada de emergência", ATV,
+           "    valores = list(mapas.values()) + list((controles or {}).values())", "    valores = list(mapas.values())"))
+    add(_m("ATV72", "ativacao", "a sugestão ignora as teclas das outras automações",
+           "TEC-12: a sugestão é a primeira combinação que nenhuma automação usa", ATV,
+           "    valores = list(mapas.values()) + list((controles or {}).values())", "    valores = list((controles or {}).values())"))
+    add(_m("ATV73", "ativacao", "a sugestão considera só as automações ativas: a tecla de uma desativada seria oferecida de novo",
+           "TEC-12: a tecla de um mapa desativado volta quando ele é ativado, então não se oferece", ATV,
+           "        return sugerir(usadas_de(mapas, controles))",
+           "        return sugerir(usadas_de({n: t for n, t in mapas.items() if self.esta_ativo(n)}, controles))"))
+    add(_m("ATV74", "ativacao", "uma tecla reservada só é recusada em automação ativa (a desativada aceitaria Ctrl+T)",
+           "TEC-11: a recusa vale em qualquer estado, o conflito de tecla ocupada é que só vale ativo", ATU,
+           "        return recusa_de_reservada(tecla, nome, atual, usadas_de(self.mapas(), self.controles()))",
+           '        return recusa_de_reservada(tecla, nome, atual, usadas_de(self.mapas(), self.controles())) if logica.esta_ativo(nome) else ""'))
+    add(_m("ATV75", "ativacao", "a tecla reservada é conferida antes da ocupada: a pessoa não sabe quem já usa a tecla",
+           "TEC-11: a ordem das recusas é inválida, ocupada, reservada (a que já existia desde a 25.8 vem primeiro)", ATU,
+           L("        logica = self._estado()", "        if logica.esta_ativo(nome):"),
+           L("        logica = self._estado()",
+             "        reservada = recusa_de_reservada(tecla, nome, atual, usadas_de(self.mapas(), self.controles()))",
+             "        if reservada:", "            return reservada", "        if logica.esta_ativo(nome):")))
+    add(_m("ATV76", "ativacao", "a tecla reservada nunca é recusada ao mudar a tecla da automação",
+           "TEC-11: Ctrl+T, A, o botão esquerdo do mouse... são recusados com o motivo", ATU,
+           "        return recusa_de_reservada(tecla, nome, atual, usadas_de(self.mapas(), self.controles()))", '        return ""'))
+    add(_m("ATV77", "ativacao", "o aviso de uma tecla que pode atrapalhar (botão lateral sozinho) não vai para a barra de status",
+           "TEC-11: a tecla vale e o cuidado é dito", ATU,
+           L("        if aviso:", "            self.janela.status_bar.showMessage(aviso, 12000)"),
+           L("        if False:", "            self.janela.status_bar.showMessage(aviso, 12000)")))
+    add(_m("ATV78", "ativacao", "o aviso é calculado depois de gravar a tecla: a tecla nova já é a atual e nunca avisa",
+           "TEC-11: o aviso compara a tecla pedida com a que o mapa tinha ANTES", ATU,
+           L("        aviso = aviso_de_reservada(tecla, mapa.hotkey, usadas_de(self.mapas(), self.controles()))", "        mapa.hotkey = tecla"),
+           L("        mapa.hotkey = tecla", "        aviso = aviso_de_reservada(tecla, mapa.hotkey, usadas_de(self.mapas(), self.controles()))")))
+    add(_m("ATV79", "ativacao", "o rótulo da tecla no editor deixa de dizer que a tecla está registrada mas não dispara",
+           "A1: o editor mostra o aviso na linha da tecla", ATU, '            aviso = " (com aviso)"', '            aviso = ""'))
+    add(_m("ATV80", "ativacao", "a sugestão do controlador ignora os atalhos de controle",
+           "TEC-12: a tecla oferecida a uma automação nova não colide com F9, F10 e a parada de emergência", ATU,
+           "        return self._estado().sugerir_tecla(self.mapas(), self.controles())", "        return self._estado().sugerir_tecla(self.mapas(), {})"))
+    add(_m("ATV81", "ativacao", "a automação nova volta a nascer com a tecla \"=\", que nunca dispara",
+           "TEC-12: a automação nova nasce em Ctrl+Shift+Alt+1 (ou na próxima livre)", JAN,
+           '        new_map = AutomationMap(name=name.strip(), hotkey=self.ativacao.sugerir_tecla() or "=", repeat_count=-1)',
+           '        new_map = AutomationMap(name=name.strip(), hotkey="=", repeat_count=-1)'))
+    add(_m("ATV82", "ativacao", "a automação de demonstração volta a nascer com a tecla \"=\"",
+           "TEC-12: a demonstração do primeiro uso nasce em Ctrl+Shift+Alt+1", JAN,
+           'hotkey=self.ativacao.sugerir_tecla() or "=", repeat_count=1)', 'hotkey="=", repeat_count=1)'))
+    add(_m("ATV83", "ativacao", "a tecla escolhida no fim da demonstração é gravada sem passar pela validação",
+           "TEC-11: a demonstração aceita as mesmas teclas das Configurações", JAN,
+           "self.ativacao.mudar_tecla(demo,hotkey.strip().upper())", "demo.hotkey=hotkey.strip().upper()"))
+    add(_m("ATV84", "ativacao", "a pergunta da tecla nas Configurações volta a oferecer o \"=\" quando o mapa não tem tecla",
+           "TEC-12: a pergunta já vem preenchida com a próxima combinação livre", JAN,
+           'text=m.hotkey if m.hotkey and not m.hotkey.upper().startswith("MOUSE_") else self.ativacao.sugerir_tecla()',
+           'text=m.hotkey if m.hotkey and not m.hotkey.upper().startswith("MOUSE_") else "="'))
 
     # ---------------------------------------------------------------------------------------------- pausar e continuar pelas teclas (achado 2.11)
     add(_m("PAU01", "motor", "pausar com sucesso diz que não pausou", "PAU-01: `pause()` devolve True quando pausou (a janela só avisa o usuário se mudou)",
