@@ -49,6 +49,7 @@ Este é o catálogo do que o programa faz. O **ID não muda** (nem quando o bot�
 | F24 | Mover um comando para baixo | Botão (tela do editor): ▼ Descer | — | a definir |
 | F25 | Agrupar comandos e gerenciar grupos | Botão (tela do editor): ● Grupos | — | a definir |
 | F26 | Outras ações sobre os comandos (menu "Mais…") | Botão (tela do editor): Mais… | — | a definir |
+| F49 | Desativar ou ativar comandos (o desativado fica na lista, mas não é executado) | Menu ou diálogo (command_editor.py): Desativar selecionados | — | a definir |
 
 ## Timeline
 

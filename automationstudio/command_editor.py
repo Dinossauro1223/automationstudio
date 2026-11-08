@@ -27,6 +27,29 @@ _ADV_WAIT_TIP = (
     "antes de liberar o próximo comando."
 )
 
+# Textos da tabela para o comando desativado (ficam na lista, mas a execução os ignora).
+_DICA_DESATIVADO = (
+    "Comando desativado: fica na lista, mas não é executado. "
+    "Clique com o botão direito e escolha “Ativar selecionados” para voltar a executar."
+)
+
+
+def _acao_ativar_desativar(ligados) -> tuple[str, bool]:
+    """O item de menu "desativar ou ativar" para estes comandos: (texto, novo valor de `enabled`).
+
+    Se pelo menos um dos comandos está ativo, o item desativa todos. Só quando TODOS já estão desativados ele ativa.
+    Assim o menu tem uma ação só e ela é sempre previsível (a mesma ideia de "comentar e descomentar" dos editores de
+    código). Sem nenhum comando escolhido o texto é o de desativar (o menu deixa o item cinza)."""
+    ligados = list(ligados)
+    if ligados and not any(ligados):
+        return "Ativar selecionados", True
+    return "Desativar selecionados", False
+
+
+def _tipo_com_estado(nome_do_tipo: str, ligado: bool) -> str:
+    """Texto da coluna Tipo. O comando desativado diz isso na própria linha, para o estado não depender só da cor."""
+    return nome_do_tipo if ligado else f"{nome_do_tipo} (desativado)"
+
 
 class SelectionRubberBand(QWidget):
     """Área de seleção visual da tabela, desenhada dentro do viewport."""
@@ -2637,7 +2660,10 @@ class CommandTableWidget(QWidget):
         group = self._automation_map.groups.get(cmd.group_id) if self._automation_map and cmd.group_id else None
         display_target = cmd.text if cmd.type == InputType.TEXT else cmd.target
         if len(display_target) > 70: display_target = display_target[:67] + "…"
-        values = [str(row + 1), cmd.description or type_name, type_name, display_target, f"{cmd.start:.2f} s", f"{cmd.computed_duration:.2f} s", group.name if group else cmd.group]
+        ligado = bool(cmd.enabled)
+        values = [str(row + 1), cmd.description or type_name, _tipo_com_estado(type_name, ligado), display_target, f"{cmd.start:.2f} s", f"{cmd.computed_duration:.2f} s", group.name if group else cmd.group]
+        # Cor de texto "apagada" do tema (a paleta do programa já define a das coisas desativadas).
+        cor_apagada = None if ligado else self.table.palette().color(QPalette.Disabled, QPalette.Text)
         for col, text in enumerate(values):
             item = QTableWidgetItem(text)
             item.setData(Qt.UserRole, cmd.id)
@@ -2651,6 +2677,13 @@ class CommandTableWidget(QWidget):
                     item.setBackground(bg)
                     item.setForeground(_text_color_for_background(bg))
                 item.setToolTip(group.description or group.name)
+            if not ligado:
+                # Comando desativado: texto apagado (menos no # de um grupo, que tem fundo colorido e já ajustou o
+                # texto dele) e a explicação na dica. A linha continua selecionável, senão não daria para reativar.
+                if not (group and col == 0):
+                    item.setForeground(cor_apagada)
+                dica = item.toolTip()
+                item.setToolTip(f"{dica}\n{_DICA_DESATIVADO}" if dica else _DICA_DESATIVADO)
             self.table.setItem(row, col, item)
 
     def _selected_rows(self) -> list[int]:
@@ -2760,6 +2793,9 @@ class CommandTableWidget(QWidget):
         copy_a=menu.addAction('Copiar selecionados'); copy_a.triggered.connect(lambda: self._copy_ids(context_ids))
         paste_a=menu.addAction('Colar'); paste_a.triggered.connect(self._paste)
         dup_a=menu.addAction('Duplicar selecionados'); dup_a.triggered.connect(lambda: self._duplicate_ids(context_ids))
+        ligados=self._estados_ligados(context_ids)
+        onoff_texto,onoff_valor=_acao_ativar_desativar(ligados)
+        onoff_a=menu.addAction(onoff_texto); onoff_a.setEnabled(bool(ligados)); onoff_a.triggered.connect(lambda: self._set_enabled_ids(context_ids, onoff_valor))
         menu.addSeparator(); delete_a=menu.addAction('Excluir selecionados'); delete_a.triggered.connect(lambda: self._remove_ids(context_ids))
         groups=menu.addMenu('Adicionar ao grupo')
         new_a=groups.addAction('＋ Criar novo grupo'); new_a.triggered.connect(lambda: self._create_group_for_ids(context_ids))
@@ -2822,6 +2858,35 @@ class CommandTableWidget(QWidget):
     def _remove_ids(self, ids: set[str]) -> None:
         if not self._automation_map or not ids: return
         self._automation_map.remove_commands(set(ids), compact=True); self.refresh(); self.map_changed.emit("Excluir comandos")
+
+    def _estados_ligados(self, ids) -> list[bool]:
+        """O `enabled` de cada comando de `ids`, na ordem da lista (vazio se não há mapa ou comando)."""
+        if not self._automation_map or not ids:
+            return []
+        return [bool(c.enabled) for c in self._automation_map.commands if c.id in ids]
+
+    def _set_enabled_ids(self, ids: set[str], enabled: bool) -> None:
+        """Ativa ou desativa os comandos escolhidos. Eles ficam na lista; a execução ignora os desativados."""
+        if not self._automation_map or not ids:
+            return
+        if not self._automation_map.set_commands_enabled(set(ids), enabled):
+            return  # nenhum comando mudou: não registra no histórico uma alteração vazia
+        self.refresh()
+        self._select_ids(set(ids))
+        self.map_changed.emit("Ativar comandos" if enabled else "Desativar comandos")
+
+    def _select_ids(self, ids: set[str]) -> None:
+        """Marca de novo, na tabela, as linhas destes comandos. A tabela é refeita do zero a cada alteração e perderia a
+        seleção, e quem ativa ou desativa costuma querer desfazer logo em seguida. Mesmo jeito da seleção por Shift."""
+        if not self._automation_map:
+            return
+        from PySide6.QtCore import QItemSelectionModel
+        model = self.table.selectionModel()
+        model.clearSelection()
+        for row, cmd in enumerate(self._automation_map.commands):
+            if cmd.id in ids:
+                model.select(self.table.model().index(row, 0), QItemSelectionModel.Select | QItemSelectionModel.Rows)
+        self._update_selection_summary()
 
     def _create_group_for_ids(self, ids: set[str]) -> None:
         if not self._automation_map or not ids: return
@@ -2942,6 +3007,11 @@ class CommandTableWidget(QWidget):
         dup_a=menu.addAction('Duplicar')
         dup_a.setEnabled(bool(ids))
         dup_a.triggered.connect(lambda: self._duplicate_ids(ids))
+        ligados=self._estados_ligados(ids)
+        onoff_texto,onoff_valor=_acao_ativar_desativar(ligados)
+        onoff_a=menu.addAction(onoff_texto)
+        onoff_a.setEnabled(bool(ligados))
+        onoff_a.triggered.connect(lambda: self._set_enabled_ids(ids, onoff_valor))
         menu.addSeparator()
         export_a=menu.addAction('Exportar seleção (.ascommands)')
         export_a.setEnabled(bool(ids))
@@ -2952,7 +3022,8 @@ class CommandTableWidget(QWidget):
         val_a=menu.addAction('Validar automação')
         val_a.triggered.connect(lambda: self.validate_requested.emit())
         test_a=menu.addAction('▶ Testar selecionados')
-        test_a.setEnabled(bool(ids))
+        # Só há o que testar se algum dos selecionados está ativo: o teste ignora os desativados, como a execução.
+        test_a.setEnabled(any(ligados))
         test_a.triggered.connect(lambda: self.test_requested.emit(set(ids)))
         prev_a=menu.addAction('▷ Pré-visualizar automação')
         prev_a.triggered.connect(lambda: self.preview_requested.emit(self._automation_map))

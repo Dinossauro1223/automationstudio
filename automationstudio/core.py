@@ -1013,6 +1013,25 @@ class AutomationMap:
         self.commands[index:index] = copies
         return copies
 
+    def set_commands_enabled(self, command_ids: set[str] | list[str], enabled: bool) -> list[Command]:
+        """Ativa ou desativa comandos sem apagá-los.
+
+        O comando desativado continua na lista, no mesmo lugar e com o mesmo horário, mas a execução, o teste e a
+        pré-visualização o ignoram (ver `build_timeline`). Os horários dos outros comandos NÃO mudam: desativar deixa um
+        vazio no tempo, e ativar de novo devolve o comando exatamente onde estava.
+
+        Devolve só os comandos que de fato mudaram. Lista vazia quer dizer que nada mudou, e então o editor não deve
+        registrar no histórico uma alteração que não alterou nada.
+        """
+        ids = {str(x) for x in command_ids}
+        enabled = bool(enabled)
+        changed: list[Command] = []
+        for cmd in self.commands:
+            if cmd.id in ids and bool(cmd.enabled) != enabled:
+                cmd.enabled = enabled
+                changed.append(cmd)
+        return changed
+
     def reorder_to_ids(self, ordered_ids: list[str]) -> bool:
         """Aplica exatamente a ordem visual indicada pelos IDs e recalcula os tempos.
 
