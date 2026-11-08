@@ -1,6 +1,6 @@
 # Especificação: o teclado em primeiro lugar (versão 25.9)
 
-Etapa 1 do processo de 8 etapas: a ficha vem antes do código. **Estado: proposta.** A origem é a mensagem do dono de 07/11/2026. O que ele escreveu está entre aspas; o que ele deixou em aberto virou uma **decisão da seção 4**, cada uma com a alternativa, para ele vetar antes de o ponto correspondente começar. O pedido é grande e se divide em pontos (seção 6); o primeiro (T1) é o único que não depende da janela e já vem construído neste ramo, com a entrega registrada em `md/ENTREGA_TECLADO_T1_25_9.md`.
+Etapa 1 do processo de 8 etapas: a ficha vem antes do código. **Estado: proposta; o T1 está construído e provado (ver a entrega); T2 em diante aguardam.** A origem é a mensagem do dono de 07/11/2026. O que ele escreveu está entre aspas; o que ele deixou em aberto virou uma **decisão da seção 4**, cada uma com a alternativa, para ele vetar antes de o ponto correspondente começar. O pedido é grande e se divide em pontos (seção 6); o primeiro (T1) é o único que não depende da janela e já vem construído neste ramo, com a entrega registrada em `md/ENTREGA_TECLADO_T1_25_9.md`.
 
 ## 1. O pedido em requisitos
 
@@ -43,9 +43,10 @@ Todos vêm da leitura do código e de execução em cópia de teste; nenhum foi 
 
 | ID | Achado | Confiança |
 |---|---|---|
-| A1 | A tecla `=`, que é a **padrão de todo mapa novo**, **nunca chega** ao gerente de atalhos: `key_to_name` devolve vazio para qualquer símbolo e o monitor descarta o evento. A tela diz "Tecla para iniciar/parar: =" e a tecla não faz nada (o botão ▶ Executar funciona). | Alta no código; efeito no Windows não observado |
+| A1 | A tecla `=`, que é a **padrão de todo mapa novo**, **nunca chega** ao gerente de atalhos: `key_to_name` devolve vazio para qualquer símbolo e o monitor descarta o evento. A tela diz "Tecla para iniciar/parar: =" e a tecla não faz nada (o botão ▶ Executar funciona). O mesmo vale para qualquer combinação com um símbolo (`Ctrl+Shift+Alt+=`): o símbolo nunca chega. | Alta no código; efeito no Windows não observado |
 | A2 | **F13 a F24 são descartadas** (a tabela de nomes só tem F1 a F12). É a tecla que mouses e teclados de muitos botões costumam enviar, ou seja, justamente as teclas livres que o dono quer usar. | Alta no código |
-| A3 | Com **Ctrl, Shift e Alt** apertados, o `char` que o pynput entrega pode refletir os modificadores (por exemplo `'!'` no lugar de `'1'`): a documentação dele cita o `canonical()` "para remover qualquer estado de modificador dos eventos de tecla". Se acontecer, `Ctrl+Shift+Alt+1` **não seria reconhecido**, e é o padrão pedido. A correção (usar o código virtual `vk` quando o `char` não serve) não muda nada quando o `char` já é uma letra ou um número. | Média: a causa vem da documentação; só o Windows do dono confirma |
+| A3 | Com **Ctrl, Shift e Alt** apertados, o `char` que o pynput entrega pode refletir os modificadores (por exemplo `'!'` no lugar de `'1'`): a documentação dele trata o `canonical()` como o meio de tirar o estado dos modificadores dos eventos de tecla. Se acontecer, `Ctrl+Shift+Alt+1` **não seria reconhecido**, e é o padrão pedido. A correção (usar o código virtual `vk` quando o `char` não serve) não muda nada quando o `char` já é uma letra ou um número. **Feita na T1**, com o efeito colateral de que o gravador também passa a registrar `Shift+1` e `Ctrl+A` pela tecla física (antes ficavam sem a tecla). | Média: a causa vem da documentação; só o Windows do dono confirma |
+| A5 | O gerente de atalhos dispara **por subconjunto** (`combinação <= teclas apertadas`): uma automação em `1` também dispara com `Ctrl+Shift+Alt+1` apertada, e uma em `Ctrl+Shift+Alt+1` dispara quando se aperta `Ctrl+Shift+Alt+1+2`. A conferência de conflito da 25.8 compara combinações **iguais** e não vê isso. A T1 só faz a **sugestão** respeitar o subconjunto; o conflito segue como está (backlog). | Alta no código |
 | A4 | Pontuação e símbolos também não são **gravados** nem **acendem no teclado virtual** (mesma causa de A1). Fora do escopo deste pedido: vai para o backlog, com o cuidado de que isso muda o que o gravador grava. | Alta no código |
 
 O A1 não é corrigido **de propósito**: se a tecla `=` passasse a funcionar, todo mapa antigo com a tecla padrão começaria a rodar a cada `=` digitado em qualquer programa. A decisão D11 troca o padrão dos mapas novos e a T1 avisa nos antigos.
@@ -63,11 +64,11 @@ O A1 não é corrigido **de propósito**: se a tecla `=` passasse a funcionar, t
 | D7 | Depois de **qualquer** confirmação (texto, tecla, tempo, espera) a linha **é desmarcada** e o foco volta à lista; **Esc** cancela e também desmarca. | É o que o dono descreveu para o texto, estendido ao resto para ser uma regra só. | Voltar à linha marcada. |
 | D8 | **Adicionar comando:** `Insert` abre um seletor de uma tecla (cada tipo mostra a sua letra, por exemplo T para tecla, E para escrever um texto, M para mouse, A para aplicativo), cria o comando já na linha de baixo e entra direto na edição. Teclas de janela propostas: `Ctrl+,` configurações do programa, `F1` lista de atalhos. | Dois toques para criar e editar, sem a barra lateral. As teclas escolhidas não colidem com as da janela (seção 2, item 6) nem com Ctrl+F e Ctrl+K do plano visual. | Outras teclas: é só trocar na tabela única da T3. |
 | D9 | Os botões da barra do alto passam a ser **parada de Tab** (`Qt::TabFocus`, que **não** dá foco ao clique do mouse). Nas configurações, a **barra de guias** é a primeira parada: ←→ trocam de guia, Tab ou ↓ entram na página. | Não muda nada para quem usa o mouse. | `Qt::StrongFocus`. |
-| D10 | **Regras de atalho de automação** (seção 5.3): recusadas as colisões certas; **aviso** nas prováveis; livres as compostas com três modificadores, as teclas F13 a F24 e os botões extras. | É a regra do dono (TEC-11, TEC-12), com um catálogo explicável. | Aceitar só três modificadores. |
-| D11 | Mapa novo criado pela tela nasce com a **primeira combinação livre** de `Ctrl+Shift+Alt+1, 2 … 9, 0, depois F1 a F12 e A a Z`. O padrão do **modelo** (`AutomationMap.hotkey = "="`) **não muda**: arquivos e testes antigos ficam idênticos. | Pedido do dono (TEC-12) sem mexer no formato. | Mudar o padrão do modelo. |
-| D12 | Mapa antigo com tecla que a regra recusa **continua funcionando** como está: só aparece um aviso ao lado da tecla. Só **trocar** a tecla passa pela regra, e salvar a automação sem mexer na tecla nunca é bloqueado. | Preservar o que funciona. | Trocar à força. |
+| D10 | **Regras de atalho de automação** (seção 5.3): recusadas as colisões certas; **aviso** nas prováveis; livres as compostas com três modificadores, as teclas F13 a F24 e os botões extras. O catálogo de combinações conhecidas (51) é comparado **por igualdade**: `Ctrl+Shift+Alt+T` não é `Ctrl+T`. | É a regra do dono (TEC-11, TEC-12), com um catálogo explicável. | Aceitar só três modificadores. |
+| D11 | Mapa novo criado pela tela, e a automação de demonstração do primeiro uso, nascem com a **primeira combinação livre** de `Ctrl+Shift+Alt+1, 2 … 9, 0, depois F1 a F12 e A a Z` (as teclas de todos os mapas, ativos ou não, e as de controle contam). O padrão do **modelo** (`AutomationMap.hotkey = "="`) **não muda**: arquivos e testes antigos ficam idênticos; só se as 48 da série estiverem em uso sobra o `=`. A pergunta de tecla das Configurações já vem preenchida com a sugestão, e deixá-la em branco passa a dizer "Nenhuma tecla foi digitada" e manter a tecla (antes virava `=`, que a regra recusa). | Pedido do dono (TEC-12) sem mexer no formato. | Mudar o padrão do modelo. |
+| D12 | Mapa antigo com tecla que a regra recusa **continua funcionando** como está. Só **trocar** a tecla passa pela regra, e salvar a automação sem mexer na tecla (ou com ela escrita de outro jeito: `ctrl+t` e `CTRL+T`) nunca é bloqueado. **D12b:** o alerta permanente (texto na faixa do mapa e "(com aviso)" no rótulo da tecla) só aparece para a tecla que **nunca dispara** (a que o monitor não entrega, como o `=` de todo mapa antigo): é defeito, não gosto. `F6` ou `Ctrl+T` num mapa antigo funcionam e não ganham alerta. | Preservar o que funciona. | Trocar à força. |
 | D13 | Os **atalhos de controle** (F8 a F12) ficam como estão; a regra vale para as **automações**. | O dono falou de automações. A mesma regra recusaria as teclas de controle de hoje. | Aplicar aos dois e propor trocar. |
-| D14 | **Botões laterais do mouse X1 e X2 sozinhos** valem como disparadores com um **aviso** (os navegadores os usam como Voltar e Avançar); com um modificador ou como botão extra aprendido, ficam livres. Esquerdo, direito e meio são **sempre recusados**. | O dono quer botões do mouse como disparadores. | Recusar X1 e X2 sozinhos. |
+| D14 | **Botões laterais do mouse X1 e X2 sozinhos** valem como disparadores com um **aviso** (os navegadores os usam como Voltar e Avançar); com um modificador ou como botão extra aprendido, ficam livres. Esquerdo, direito e meio são recusados **sozinhos ou só com Shift**. **D14b:** com Ctrl ou Alt valem as regras dos modificadores (um só é recusado, dois dão aviso, três são livres), porque `Ctrl+Shift+Alt` + clique é deliberado e não dispara no clique comum. | O dono quer botões do mouse como disparadores. | Recusar X1 e X2 sozinhos. |
 | D15 | "Até 4 botões" é lido como **até 4 botões laterais desenhados** no mouse virtual (hoje são 2); os demais valem como disparadores e aparecem entre as teclas, sem desenho. | É o que a frase indica. | 4 botões no total. |
 | D16 | Como o Windows só expõe cinco botões de forma padrão, a **quantidade** vem do sistema (quando informa) e a **entrada de cada botão** vem de um **assistente de aprendizado** ("aperte o botão que quer cadastrar"), guardado nas configurações. | Botões além do 5º costumam chegar como teclas (F13 a F24, combinações) pelo software do fabricante; só apertando se descobre. | Digitar a lista à mão. |
 
@@ -105,22 +106,17 @@ Nenhuma dessas teclas age quando o foco está num campo de texto (a barra latera
 
 ### 5.3 Regras das teclas de automação (T1)
 
-A combinação é lida por `parse_combo` (maiúsculas, espaços e apelidos já normalizados). O **primeiro** item que se aplicar decide:
+A combinação é lida por `parse_combo` (maiúsculas, espaços e apelidos já normalizados). O **primeiro** item que se aplicar decide (entre parênteses, o nome da regra no código, em `Avaliacao.regra`):
 
-1. Sem nenhuma tecla ou botão, só modificadores: **recusada** (dispararia ao usar qualquer atalho).
-2. Com **Win**: recusada (atalhos do Windows).
-3. Catálogo explícito de combinações do Windows e dos navegadores (Ctrl+Alt+Del, Ctrl+Shift+Esc, Alt+F4, Alt+Tab, Ctrl+Shift+T, Ctrl+Shift+N, Ctrl+Shift+W, Ctrl+Shift+Delete, Ctrl+Shift+I, J e C, Ctrl+Shift+R, Ctrl+Shift+Tab e outras): **recusada**, com o motivo da combinação.
-4. Esquerdo, direito ou meio do mouse (com ou sem modificador): recusada.
-5. Tecla de digitar ou navegar (letra, número, símbolo, Espaço, Enter, Tab, setas, Delete…) **sem modificador ou só com Shift**: recusada (dispararia ao digitar).
-6. F1 a F12 sem modificador ou só com Shift: recusada (ajuda, atualizar, tela cheia, ferramentas do desenvolvedor…).
-7. Teclas F13 a F24 (com qualquer combinação que passou das regras 1 a 6): **livre**.
-8. Um único modificador, **Ctrl** ou **Alt**: recusada (quase todo programa usa Ctrl+tecla e Alt+tecla).
-9. **Ctrl+Alt** (o AltGr) com tecla de digitar: recusada (digita caracteres em vários teclados, como o ABNT2).
-10. **Dois** modificadores com uma tecla que o catálogo não cita: **aviso** ("pode colidir com atalhos de alguns programas").
-11. **X1 ou X2** sozinho: aviso (D14).
-12. Todo o resto: **livre**, em especial **três** modificadores (Ctrl+Shift+Alt) com uma tecla e os botões extras aprendidos (T5).
-
-O AltGr que o pynput informa (`ALTGR`) é lido como Ctrl+Alt, que é o que ele é no Windows.
+1. Entrada que não é uma tecla (vazia, só `+`, não é texto): **recusada** (`invalida`). A avaliação nunca levanta erro.
+2. Alguma parte que o monitor **nunca produz** (um símbolo como `=`, ou um nome errado como `CRTL`): **recusada** (`desconhecida`): a tecla nunca dispararia (A1).
+3. Só modificadores: **recusada** (`sem_tecla`): dispararia ao usar qualquer atalho.
+4. Com **Win**: recusada (`win`). O AltGr que o pynput informa (`ALTGR`) é lido como Ctrl+Alt, que é o que ele é no Windows.
+5. Combinação do **catálogo** (51: atalhos do Windows, `Ctrl+Shift+...` dos navegadores, `Ctrl+tecla` e `Alt+tecla` comuns), comparada **por igualdade**: **recusada** (`catalogo`), com o que a combinação faz.
+6. **Sem Ctrl/Alt** (nenhum modificador, ou só Shift): Print Screen, Menu, Caps Lock e Num Lock: recusada (`isolada`); botão esquerdo, direito ou meio do mouse: recusada (`mouse`); letra, número, Espaço, Enter, Tab, Esc, setas, Delete…: recusada (`digitar`); F1 a F12: recusada (`f1_f12`); Pause e Scroll Lock: **aviso** (`isolada`).
+7. Teclas **F13 a F24** (com qualquer combinação que passou das regras acima): **livre** (`f13_f24`).
+8. Com tecla (ou botão principal do mouse) e modificadores: **um** só (Ctrl ou Alt): recusada (`um_modificador`); **Ctrl+Alt** com letra ou número (o AltGr): recusada (`altgr`); **dois** modificadores: **aviso** (`dois_modificadores`); **três** (Ctrl+Shift+Alt): **livre** (`livre`).
+9. Só **botões laterais** do mouse (X1, X2): sozinhos, **aviso** (`lateral`: os navegadores os usam como Voltar e Avançar); com modificador, livres.
 
 O resultado é `livre`, `aviso` ou `recusada`, com o texto para mostrar e, na recusa, uma sugestão (a próxima combinação livre da D11). **Quando vale:** ao trocar a tecla de um mapa (recusa, salvo se a tecla não mudou: D12), ao criar um mapa pela tela (D11) e, em mapas que já existem, só como aviso ao lado da tecla.
 
@@ -132,10 +128,10 @@ Uma função pura recebe quanto tempo a seta está segurada e devolve a velocida
 
 | Ponto | Entrega | Prova | Só o Windows ou o Qt de verdade confirma |
 |---|---|---|---|
-| **T1** | Regras e catálogo das teclas de automação (TEC-11), sugestão `Ctrl+Shift+Alt+N` (TEC-12), nomes de tecla confiáveis: F13 a F24 e dígitos e letras pelo `vk` (A2, A3), avisos nos mapas antigos. | Testes de unidade (regras, catálogo, normalização, sugestão), do monitor (`key_to_name`) e da ativação; defeitos plantados; Actions. | A3: `Ctrl+Shift+Alt+1` acender e disparar no teclado do dono. |
+| **T1** | Regras e catálogo das teclas de automação (TEC-11), sugestão `Ctrl+Shift+Alt+N` (TEC-12) para o mapa novo, a demonstração e a pergunta das Configurações, nomes de tecla confiáveis: F13 a F24 no monitor e no `SendInput`, dígitos e letras pelo `vk` (A2, A3), alerta nos mapas antigos com a tecla que não dispara (D12b). O fallback pynput envia F13 a F20 (o que o pynput garante) e **recusa** F21 a F24. | Testes de unidade (regras, catálogo, normalização, sugestão), do monitor (`key_to_name`) e da ativação; defeitos plantados; Actions. | A3: `Ctrl+Shift+Alt+1` acender e disparar no teclado do dono. |
 | T2 | O controlador da edição por teclado e a curva de D5 (TEC-01 a TEC-05, TEC-08). | Testes com relógio falso: cada transição, o toque contra o segurar, a curva por tempo, desfazer, Esc, 0,4 s. Varredura de sequências aleatórias de teclas contra invariantes. Defeitos plantados. | O "feeling" da curva. |
 | T3 | A ligação com a tabela e a barra de status; captura da tecla com o bip; seletor de aplicativo; `Insert`; F2; Shift+Enter; atalhos de janela (TEC-02, TEC-06, TEC-09). | Testes com Qt de verdade (`QTest.keyClick`) no Actions: a lista com foco recebe, o campo de texto não; Enter, Enter duas vezes, `'`, ← →; histórico (desfazer) correto. | O bip, o foco depois de confirmar, a sensação no dia a dia. |
-| T4 | Tab na barra do alto e nas guias das configurações; `F1` com a lista de atalhos (a mesma tabela do controlador); dicas dos botões com a tecla; catálogo F49 em diante (TEC-07, TEC-09, TEC-10). | Qt de verdade: ordem de Tab, foco inicial, ←→ nas guias; o catálogo confere cada tecla contra o código. Roteiro de aceitação **sem mouse** (cria, edita e executa uma automação). | O roteiro, no Windows. |
+| T4 | Tab na barra do alto e nas guias das configurações; `F1` com a lista de atalhos (a mesma tabela do controlador); dicas dos botões com a tecla; catálogo de funções a partir do primeiro número livre na hora (F49 e F50 já são de `funcoes/desativar-comandos` e `funcoes/executar-a-partir-daqui`, de outra sessão; então F51 em diante) (TEC-07, TEC-09, TEC-10). | Qt de verdade: ordem de Tab, foco inicial, ←→ nas guias; o catálogo confere cada tecla contra o código. Roteiro de aceitação **sem mouse** (cria, edita e executa uma automação). | O roteiro, no Windows. |
 | T5 | Perfil do mouse: contagem, aprendizado, desenho de até 4 laterais, botões extras como disparadores e entre as teclas (TEC-13 a TEC-16). | Testes com monitor falso e `user32` falso; Qt de verdade para o desenho. | Quase tudo: depende do mouse do dono. |
 | T6 | Rodada do Windows: um roteiro curto de conferência, no formato dos anteriores. | — | Tudo o que ficou na última coluna. |
 
@@ -145,14 +141,16 @@ A ordem é a da dependência e do risco: T1 e T2 são lógica pura e travam o re
 
 1. **Arquivos compartilhados.** `command_editor.py` e `main_window.py` mudam nas duas frentes. Mitigação: a lógica fica em módulos novos e a mudança nos arquivos compartilhados é uma delegação de poucas linhas; cada commit lista o que tocou.
 2. **Enter na lista** tem dois donos: o plano visual (P4) abre a barra lateral; o pedido do dono de 07/11 edita no lugar. A D2 resolve com Shift+Enter para a barra lateral; o duplo clique do mouse segue abrindo a barra. Quem integra decide se quer outro desenho.
-3. **AltGr.** `Ctrl+Alt` é o AltGr em teclados como o ABNT2; `Ctrl+Shift+Alt+1` tem Shift junto e provavelmente não digita nada, mas **só o teclado do dono confirma** (por isso a regra 9 recusa `Ctrl+Alt+letra`).
+3. **AltGr.** `Ctrl+Alt` é o AltGr em teclados como o ABNT2; `Ctrl+Shift+Alt+1` tem Shift junto e provavelmente não digita nada, mas **só o teclado do dono confirma** (por isso a regra `altgr` recusa `Ctrl+Alt+letra`; no teclado ABNT2 use o Alt da **esquerda** em `Ctrl+Shift+Alt+1`).
 4. **A3 é hipótese.** Se o `char` já vier certo, a correção do `vk` é inofensiva; se vier alterado, ela é o que faz o padrão pedido funcionar.
 5. **Botões do mouse.** O Windows só entrega cinco botões de forma padrão; o resto depende do software do fabricante (T5, D16). Sem o mouse do dono, a parte de entrada de cada botão não pode ser provada aqui.
 6. **Tab na barra do alto** depende do `Qt::NoFocus` do item 4 da seção 2: é conferido com Qt de verdade antes de mudar.
 
 ## 8. Fora do escopo (backlog)
 
-- Gravar e acender no teclado virtual a pontuação e os símbolos (A4).
+- Gravar e acender no teclado virtual a pontuação e os símbolos (A4); só então um símbolo pode virar tecla de atalho.
+- Conflito de teclas por subconjunto (A5): hoje só a sugestão o respeita.
+- F21 a F24 no fallback pynput (só o `SendInput` do Windows as envia).
 - Trocar os atalhos de controle (F8 a F12) por combinações compostas (D13).
 - Mais teclas de janela (executar, parar, salvar) além das da D8: o dono diz quais quer.
 - Multiplicadores de passo no tempo (Shift e Ctrl com ← →).
