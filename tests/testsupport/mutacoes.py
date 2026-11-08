@@ -596,7 +596,10 @@ def catalogo() -> list[Mutante]:
     add(_m("W3217", "win32", "til morto vira circunflexo", "ã e õ pela tecla morta do layout brasileiro",
            IS, "'\\u0303': '~',  # tilde", "'\\u0303': '^',  # tilde"))
     add(_m("W3218", "win32", "teclas F deslocadas em um", "tabela de teclas virtuais",
-           IS, 'self._vk.update({f"F{i}":0x6F+i for i in range(1,13)})', 'self._vk.update({f"F{i}":0x70+i for i in range(1,13)})'))
+           IS, 'self._vk.update({f"F{i}":0x6F+i for i in range(1,25)})', 'self._vk.update({f"F{i}":0x70+i for i in range(1,25)})'))
+    add(_m("W3223", "win32", "a tabela do Win32 volta a ter só F1 a F12: F13 a F24 gravadas não são reproduzidas",
+           "25.9: as 24 teclas de função que o monitor grava são as que o SendInput envia", IS,
+           'self._vk.update({f"F{i}":0x6F+i for i in range(1,25)})', 'self._vk.update({f"F{i}":0x6F+i for i in range(1,13)})'))
     add(_m("W3219", "win32", "SHIFT mapeado para o VK do CTRL", "tabela de teclas virtuais",
            IS, '"BACKSPACE":0x08,"TAB":0x09,"ENTER":0x0D,"SHIFT":0x10,', '"BACKSPACE":0x08,"TAB":0x09,"ENTER":0x0D,"SHIFT":0x11,'))
     add(_m("W3220", "win32", "o intervalo entre caracteres do Win32 não é respeitado", "intervalo de digitação (a constante do core)",
@@ -859,6 +862,26 @@ def catalogo() -> list[Mutante]:
            "quem altera o resultado não altera a configuração", PRJ,
            "        return copy.deepcopy(saved) if isinstance(saved, dict) else {}", "        return saved if isinstance(saved, dict) else {}"))
 
+
+    # ---------------------------------------------------------------------------------------------- teclas de automação (25.9, T1)
+    # Os nomes de tecla do monitor: F13 a F24 e as teclas pelo código virtual. O teste é tests/engine/test_monitor.py.
+    add(_m("TEC24", "teclas", "uma tecla que chega sem caractere útil (Ctrl+A, Shift+1) deixa de ser reconhecida pelo código virtual",
+           "TEC-10: o gravador registra a tecla física quando o caractere é de controle ou símbolo", CORE,
+           '    return _name_from_vk(getattr(key, "vk", None))', '    return ""'))
+    add(_m("TEC25", "teclas", "o monitor deixa de dar nome a F13 a F24",
+           "TEC-10: as teclas F13 a F24 são gravadas e usadas como atalho", CORE,
+           '**{f"f{i}": f"F{i}" for i in range(1, 25)},', '**{f"f{i}": f"F{i}" for i in range(1, 13)},'))
+    add(_m("TEC26", "teclas", "o nome pelo código virtual é deslocado em um (F1 vira F0)",
+           "TEC-10: o código virtual 0x70 é F1", CORE, '        return f"F{vk - 0x6F}"', '        return f"F{vk - 0x70}"'))
+    add(_m("TEC27", "teclas", "o código virtual de F13 a F24 deixa de ser reconhecido",
+           "TEC-10: F13 a F24 chegam só com o código virtual no Windows", CORE,
+           "    if 0x70 <= vk <= 0x87:", "    if 0x70 <= vk <= 0x7B:"))
+    add(_m("TEC28", "teclas", "o código virtual do número 0 deixa de ser reconhecido",
+           "TEC-10: 0x30 a 0x39 são os números de 0 a 9", CORE,
+           "    if 0x30 <= vk <= 0x39 or 0x41 <= vk <= 0x5A:", "    if 0x31 <= vk <= 0x39 or 0x41 <= vk <= 0x5A:"))
+    add(_m("TEC29", "teclas", "um código virtual que não é número inteiro derruba o monitor em vez de ser ignorado",
+           "TEC-10: o que o monitor não entende é ignorado, nunca levanta", CORE,
+           "    if isinstance(vk, bool) or not isinstance(vk, int):", "    if False:"))
 
     # ---------------------------------------------------------------------------------------------- pausar e continuar pelas teclas (achado 2.11)
     add(_m("PAU01", "motor", "pausar com sucesso diz que não pausou", "PAU-01: `pause()` devolve True quando pausou (a janela só avisa o usuário se mudou)",

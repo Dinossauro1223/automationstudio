@@ -104,7 +104,7 @@ _SPECIAL_KEY_NAMES: dict[str, str] = {
     "page_up": "PAGEUP", "delete": "DELETE", "end": "END",
     "page_down": "PAGEDOWN", "num_lock": "NUMLOCK",
     "cmd": "WIN", "cmd_l": "WIN", "cmd_r": "WIN", "menu": "MENU",
-    **{f"f{i}": f"F{i}" for i in range(1, 13)},
+    **{f"f{i}": f"F{i}" for i in range(1, 25)},  # F13 a F24 (25.9): as teclas extras de teclados e mouses de muitos botões
 }
 
 FORMAT_VERSION = 1
@@ -678,8 +678,23 @@ def key_to_name(key) -> str:
         up = char.upper()
         if len(up) == 1 and (up.isalnum() or up in "Ç"):
             return up
+    # 25.9: sem `char` que sirva (com Ctrl o pynput entrega um caractere de controle; com Shift, o símbolo: "!" no lugar de "1"),
+    # a tecla é a física, pelo código virtual. Só letras, números e F1 a F24: o resto continua ignorado, como sempre.
+    return _name_from_vk(getattr(key, "vk", None))
+
+
+def _name_from_vk(vk) -> str:
+    """Nome da tecla pelo código virtual do Windows (VK_*), só para as teclas que o Studio modela e cujo nome não depende do
+    layout: 0x30-0x39 (0 a 9), 0x41-0x5A (A a Z) e 0x70-0x87 (F1 a F24). Qualquer outra coisa, ou um valor que não é um
+    inteiro de verdade, não tem nome."""
+    if isinstance(vk, bool) or not isinstance(vk, int):
         return ""
+    if 0x30 <= vk <= 0x39 or 0x41 <= vk <= 0x5A:
+        return chr(vk)
+    if 0x70 <= vk <= 0x87:
+        return f"F{vk - 0x6F}"
     return ""
+
 
 def _normalize_hotkey_token(token: str) -> str:
     t = token.strip().upper().replace(" ", "")

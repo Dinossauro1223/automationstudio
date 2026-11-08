@@ -280,7 +280,7 @@ class Win32InputBackend(InputBackend):
             "VOLUME_DOWN":0xAE,"VOLUME_UP":0xAF,"MEDIA_NEXT":0xB0,"MEDIA_PREV":0xB1,
             "MEDIA_STOP":0xB2,"MEDIA_PLAY_PAUSE":0xB3,"Ç":0xBA,"~^":0xC0,
         }
-        self._vk.update({f"F{i}":0x6F+i for i in range(1,13)})
+        self._vk.update({f"F{i}":0x6F+i for i in range(1,25)})  # F1=0x70 ... F24=0x87 (VK_F1 a VK_F24; F13 a F24 desde a 25.9)
         self._vk.update({f"NUM{i}":0x60+i for i in range(10)})
         self._vk.update({chr(ord('A')+i):0x41+i for i in range(26)})
         self._vk.update({str(i):0x30+i for i in range(10)})

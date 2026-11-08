@@ -86,7 +86,8 @@ class FakePynput:
         enter, esc, ctrl, shift, alt, alt_gr, cmd, menu, space, tab = (f"<{n}>" for n in ("enter", "esc", "ctrl", "shift", "alt", "alt_gr", "cmd", "menu", "space", "tab"))
         backspace, delete, home, end, page_up, page_down = (f"<{n}>" for n in ("backspace", "delete", "home", "end", "page_up", "page_down"))
         up, down, left, right, caps_lock, insert = (f"<{n}>" for n in ("up", "down", "left", "right", "caps_lock", "insert"))
-        f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12 = (f"<f{i}>" for i in range(1, 13))
+        # O pynput garante F1 a F20 em todo sistema ("F1 to F20 are defined"); F21 a F24 dependem da plataforma e aqui não existem.
+        f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20 = (f"<f{i}>" for i in range(1, 21))
         pause, print_screen, scroll_lock, num_lock = (f"<{n}>" for n in ("pause", "print_screen", "scroll_lock", "num_lock"))
 
     class KeyCode:
