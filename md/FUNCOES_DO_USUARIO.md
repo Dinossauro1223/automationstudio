@@ -48,6 +48,7 @@ Este é o catálogo do que o programa faz. O **ID não muda** (nem quando o bot�
 | F23 | Mover um comando para cima | Botão (tela do editor): ▲ Subir | — | a definir |
 | F24 | Mover um comando para baixo | Botão (tela do editor): ▼ Descer | — | a definir |
 | F25 | Agrupar comandos e gerenciar grupos | Botão (tela do editor): ● Grupos | — | a definir |
+| F50 | Executar a partir de um comando (dali até o fim da lista) | Menu ou diálogo (command_editor.py): Executar a partir daqui | — | a definir |
 | F26 | Outras ações sobre os comandos (menu "Mais…") | Botão (tela do editor): Mais… | — | a definir |
 
 ## Timeline

@@ -1731,6 +1731,19 @@ class ReorderGhostOverlay(QWidget):
         painter.setOpacity(self._opacity)
         painter.drawPixmap(0, 0, self._pixmap)
 
+
+def _ids_a_partir_daqui(comandos, ids) -> list[str]:
+    """Os ids dos comandos que "Executar a partir daqui" roda: do primeiro de `ids` (na ordem da LISTA, que é a sequência do
+    mapa) até o fim, pulando os desativados, que a execução ignoraria de qualquer jeito. Tirá-los daqui também evita que o
+    teste comece com uma espera por causa de um comando desativado no começo. Vazio se nenhum de `ids` está na lista ou se
+    não sobra nenhum comando ativo (o menu deixa o item cinza)."""
+    comandos = list(comandos)
+    for posicao, cmd in enumerate(comandos):
+        if cmd.id in ids:
+            return [c.id for c in comandos[posicao:] if c.enabled]
+    return []
+
+
 class CommandTableWidget(QWidget):
     """Editor central da V23: seleção, edição, clipboard e operações do mapa."""
     map_changed = Signal(str)
@@ -2757,6 +2770,10 @@ class CommandTableWidget(QWidget):
             }
         if self._context_press_row is not None and self._context_press_row not in self._selected_rows():
             context_ids = {self._automation_map.commands[self._context_press_row].id} if 0 <= self._context_press_row < len(self._automation_map.commands) else context_ids
+        # Roda como o "Testar selecionados" (uma vez, na velocidade do mapa, começando na hora): do comando clicado até o fim.
+        daqui=_ids_a_partir_daqui(self._automation_map.commands, context_ids)
+        from_a=menu.addAction('▶ Executar a partir daqui'); from_a.setEnabled(bool(daqui)); from_a.triggered.connect(lambda: self.test_requested.emit(set(daqui)))
+        menu.addSeparator()
         copy_a=menu.addAction('Copiar selecionados'); copy_a.triggered.connect(lambda: self._copy_ids(context_ids))
         paste_a=menu.addAction('Colar'); paste_a.triggered.connect(self._paste)
         dup_a=menu.addAction('Duplicar selecionados'); dup_a.triggered.connect(lambda: self._duplicate_ids(context_ids))
@@ -2954,6 +2971,11 @@ class CommandTableWidget(QWidget):
         test_a=menu.addAction('▶ Testar selecionados')
         test_a.setEnabled(bool(ids))
         test_a.triggered.connect(lambda: self.test_requested.emit(set(ids)))
+        # Do primeiro comando selecionado até o fim da lista (mesmo caminho do teste acima).
+        daqui=_ids_a_partir_daqui(self._automation_map.commands, ids)
+        from_a=menu.addAction('▶ Executar a partir daqui')
+        from_a.setEnabled(bool(daqui))
+        from_a.triggered.connect(lambda: self.test_requested.emit(set(daqui)))
         prev_a=menu.addAction('▷ Pré-visualizar automação')
         prev_a.triggered.connect(lambda: self.preview_requested.emit(self._automation_map))
         menu.exec(self.btn_more.mapToGlobal(self.btn_more.rect().bottomLeft()))
