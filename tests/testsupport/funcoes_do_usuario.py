@@ -38,6 +38,7 @@ FUNCOES = [
     Funcao("F10", "Execução", "Executar a automação", "", [("acao", "▶ Executar", "sempre")]),
     Funcao("F11", "Execução", "Parar a execução", "", [("acao", "■ Parar", "sempre")]),
     Funcao("F12", "Execução", "Parar tudo (emergência)", "tecla de parada", [("acao", "🛑 Parar tudo", "sempre")]),
+    Funcao("F51", "Execução", "Ver o aviso de janela de administrador durante a execução", "", [("fonte", "elevacao.py", "Janela de administrador")]),
     Funcao("F13", "Execução", "Ver o monitor de execução", "", [("acao", "▣ Monitor de execução", "sempre")]),
     Funcao("F14", "Execução", "Voltar ao editor (da timeline ou do monitor)", "", [("botao", "← Voltar ao editor", "timeline")]),
     Funcao("F15", "Execução", "Parar tudo pela tecla, mesmo que um mapa use a mesma tecla", "tecla de parada",
