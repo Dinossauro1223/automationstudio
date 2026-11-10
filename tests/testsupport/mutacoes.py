@@ -1004,6 +1004,228 @@ def catalogo() -> list[Mutante]:
            "T2: índice fora do mapa é IndexError, inclusive o negativo", CORE,
            "        if not 0 <= index < len(self.commands):", "        if not -len(self.commands) <= index < len(self.commands):"))
 
+    # ---- a edição pelo teclado (25.9, T2): automationstudio/teclado_edicao.py. Os testes são tests/unit/test_teclado_edicao.py
+    # (o controlador, a ficha da linha, a dica) e tests/unit/test_teclado_curva.py (a seta segurada).
+    TKE = "automationstudio/teclado_edicao.py"
+    # a curva
+    add(_m("TKE01", "teclado", "o toque (um passo) passa a valer o dobro", "T2/D5: um toque muda 0,01 s", TKE,
+           "PASSO_TOQUE = 0.01", "PASSO_TOQUE = 0.02"))
+    add(_m("TKE02", "teclado", "a seta vira rampa já no primeiro instante (o limite do toque cai para 0)",
+           "T2/D5: até 0,3 s apertada a seta é só um toque", TKE, "LIMITE_TOQUE = 0.3", "LIMITE_TOQUE = 0.0"))
+    add(_m("TKE03", "teclado", "os 3 primeiros segundos passam a ser mais rápidos (velocidade inicial dobrada)",
+           "T2/D5: 0,1 s de valor por segundo de seta nos 3 primeiros segundos", TKE, "VELOCIDADE_INICIAL = 0.1", "VELOCIDADE_INICIAL = 0.2"))
+    add(_m("TKE04", "teclado", "a fase lenta cai de 3 para 1 segundo", "T2/D5: os 3 primeiros segundos são lentos", TKE,
+           "SEGUNDOS_LENTOS = 3.0", "SEGUNDOS_LENTOS = 1.0"))
+    add(_m("TKE05", "teclado", "a velocidade passa a dobrar a cada segundo (e não a cada 2)", "T2/D5: dobra a cada 2 s", TKE,
+           "DOBRA_A_CADA = 2.0", "DOBRA_A_CADA = 1.0"))
+    add(_m("TKE06", "teclado", "o teto da velocidade passa de 60 para 600 s por segundo", "T2/D5: o teto é 1 minuto por segundo", TKE,
+           "VELOCIDADE_MAXIMA = 60.0", "VELOCIDADE_MAXIMA = 600.0"))
+    add(_m("TKE07", "teclado", "o valor passa a ser arredondado ao centésimo e não ao milissegundo", "T2/D5: resolução de 1 ms", TKE,
+           "_CASAS = 3", "_CASAS = 2"))
+    add(_m("TKE08", "teclado", "a rampa esquece a fase lenta: a distância depois dos 3 s não soma os 0,3 s já andados",
+           "T2/D5: a curva é a integral da velocidade, com a fase lenta incluída", TKE,
+           "    return VELOCIDADE_INICIAL * SEGUNDOS_LENTOS + VELOCIDADE_INICIAL / _K * (", "    return VELOCIDADE_INICIAL / _K * ("))
+    add(_m("TKE09", "teclado", "a fase de dobrar usa o fator errado (multiplica em vez de dividir por k)",
+           "T2/D5: a integral da exponencial", TKE, "VELOCIDADE_INICIAL / _K * (", "VELOCIDADE_INICIAL * _K * ("))
+    add(_m("TKE10", "teclado", "a mudança acumulada deixa de contar o toque de 0,01 s", "T2/D5: o toque aplicado ao apertar já conta", TKE,
+           "    return PASSO_TOQUE + _distancia(t) - _distancia(LIMITE_TOQUE)", "    return _distancia(t) - _distancia(LIMITE_TOQUE)"))
+    add(_m("TKE11", "teclado", "depois do teto a distância deixa de crescer em linha reta (some o termo 60 s por s)",
+           "T2/D5: no teto a velocidade fica em 60 s por segundo", TKE,
+           "        return _distancia(_SEGUNDOS_DO_TETO) + VELOCIDADE_MAXIMA * (t - _SEGUNDOS_DO_TETO)", "        return _distancia(_SEGUNDOS_DO_TETO)"))
+    add(_m("TKE12", "teclado", "a velocidade deixa de parar no teto (continua dobrando)", "T2/D5: teto de velocidade", TKE,
+           L("    if t >= _SEGUNDOS_DO_TETO:", "        return VELOCIDADE_MAXIMA"), L("    if False:", "        return VELOCIDADE_MAXIMA")))
+    add(_m("TKE13", "teclado", "o valor deixa de ser arredondado", "T2/D5: o valor é em milissegundos", TKE,
+           "min(maximo, max(minimo, round(bruto, _CASAS)))", "min(maximo, max(minimo, bruto))"))
+    add(_m("TKE14", "teclado", "o valor pode ficar abaixo do mínimo", "T2: o valor nunca passa do mínimo", TKE,
+           "min(maximo, max(minimo, round(bruto, _CASAS)))", "min(maximo, round(bruto, _CASAS))"))
+    add(_m("TKE15", "teclado", "o valor pode passar do teto de uma hora", "T2: o valor nunca passa do teto", TKE,
+           "min(maximo, max(minimo, round(bruto, _CASAS)))", "max(minimo, round(bruto, _CASAS))"))
+    add(_m("TKE16", "teclado", "a seta esquerda aumenta e a direita diminui", "T2: ← diminui, → aumenta", TKE,
+           "(1 if sentido >= 0 else -1)", "(-1 if sentido >= 0 else 1)"))
+    add(_m("TKE17", "teclado", "os segundos aparecem com ponto decimal em vez de vírgula", "T2: o texto do valor é em português", TKE,
+           '.replace(".", ",") + " s"', '.replace(",", ".") + " s"'))
+    add(_m("TKE18", "teclado", "os segundos aparecem com os zeros sobrando (0,500 s)", "T2: o texto do valor, sem zeros sobrando", TKE,
+           '    texto = f"{valor:.{_CASAS}f}".rstrip("0").rstrip(".")', '    texto = f"{valor:.{_CASAS}f}".rstrip(".")'))
+    add(_m("TKE19", "teclado", "um valor inteiro aparece com o ponto sobrando (1000, s)", "T2: o texto do valor, sem ponto sobrando", TKE,
+           '    texto = f"{valor:.{_CASAS}f}".rstrip("0").rstrip(".")', '    texto = f"{valor:.{_CASAS}f}".rstrip("0")'))
+    add(_m("TKE20", "teclado", "um valor que arredonda para zero negativo aparece como -0 s", "T2: o texto do valor nunca mostra -0", TKE,
+           '    if texto in ("", "-0"):', '    if texto in ("",):'))
+    # o Enter duplo
+    add(_m("TKE21", "teclado", "a janela do Enter duplo cai para zero", "T2-3/D1: dois Enter em até 0,4 s abrem o tempo", TKE,
+           "JANELA_ENTER_DUPLO = 0.4", "JANELA_ENTER_DUPLO = 0.0"))
+    add(_m("TKE22", "teclado", "a janela do Enter duplo vira 4 segundos", "T2-3: depois de 0,4 s o Enter é do conteúdo", TKE,
+           "JANELA_ENTER_DUPLO = 0.4", "JANELA_ENTER_DUPLO = 4.0"))
+    add(_m("TKE23", "teclado", "no limite exato de 0,4 s o Enter deixa de ser duplo", "T2-3: o limite da janela é inclusivo", TKE,
+           "        return not self._outra and agora <= self._t_enter + JANELA_ENTER_DUPLO",
+           "        return not self._outra and agora < self._t_enter + JANELA_ENTER_DUPLO"))
+    add(_m("TKE24", "teclado", "o Enter depois de outra tecla ainda conta como duplo", "T2-3: sem outra tecla no meio",
+           TKE, "        return not self._outra and agora <= self._t_enter + JANELA_ENTER_DUPLO",
+           "        return agora <= self._t_enter + JANELA_ENTER_DUPLO"))
+    add(_m("TKE25", "teclado", "o instante do primeiro Enter não é guardado (a janela fica sempre no zero)",
+           "T2-3: a janela conta a partir do Enter que abriu ESTA edição", TKE,
+           "        self._estado, self._linha, self._t_enter = estado, linha, agora", "        self._estado, self._linha, self._t_enter = estado, linha, 0.0"))
+    add(_m("TKE26", "teclado", "uma edição nova herda o 'houve outra tecla' da anterior", "T2: cada edição começa limpa", TKE,
+           "        self._outra = False     # houve outra tecla", "        pass                    # houve outra tecla"))
+    add(_m("TKE27", "teclado", "uma edição nova herda a proposta da anterior", "T2: cada edição começa limpa", TKE,
+           '        self._proposta = ""\n        self._botao = ""', "        self._botao = \"\""))
+    # navegando
+    add(_m("TKE28", "teclado", "sem comando na linha o Enter quebra (a navegação não confere a linha)", "T2: sem comando, a tecla volta para a janela", TKE,
+           "        if linha is None or tecla.ctrl or tecla.alt:", "        if tecla.ctrl or tecla.alt:"))
+    add(_m("TKE29", "teclado", "Ctrl+Enter, Ctrl+F2 e Ctrl+' passam a ser atalhos da edição", "T2/TEC-08: Ctrl e Alt são dos atalhos da janela", TKE,
+           "        if linha is None or tecla.ctrl or tecla.alt:", "        if linha is None:"))
+    add(_m("TKE30", "teclado", "o Shift+Enter deixa de abrir a barra lateral (vira Enter comum)", "T2: Shift+Enter abre os detalhes", TKE,
+           "            if tecla.shift:\n                return Resposta(True, (AbrirBarraLateral(linha.indice),))",
+           "            if False:\n                return Resposta(True, (AbrirBarraLateral(linha.indice),))"))
+    add(_m("TKE31", "teclado", "o Shift+F2 também edita a célula", "T2: só o F2 sem modificador", TKE,
+           '        if nome == "F2" and not tecla.shift:', '        if nome == "F2":'))
+    add(_m("TKE32", "teclado", "o apóstrofo passa a ser reconhecido pelo nome da tecla e não pelo caractere digitado",
+           "T2-1/D3: o apóstrofo vale pelo caractere, em qualquer layout", TKE,
+           '        if tecla.texto == "\'":\n            return self._abrir_espera(linha)', '        if tecla.nome == "\'":\n            return self._abrir_espera(linha)'))
+    add(_m("TKE33", "teclado", "o Enter numa linha de tecla não marca a linha", "T2-2: o Enter marca a linha que está sendo editada", TKE,
+           "(Marcar(i), IniciarCaptura(i, linha.alvo), Dica(", "(IniciarCaptura(i, linha.alvo), Dica("))
+    add(_m("TKE34", "teclado", "um botão com nome desconhecido deixa a edição num botão que não existe",
+           "T2-2: botão que o modelo não conhece começa no esquerdo", TKE,
+           "            self._botao = atual if atual in MOUSE_BUTTON_NAMES else MOUSE_BUTTON_NAMES[0]", "            self._botao = atual"))
+    add(_m("TKE35", "teclado", "o Enter em mover, rolar e esperar volta para a janela em vez de apontar a barra lateral",
+           "T2-2: sem conteúdo simples, o Enter explica e manda para a barra lateral", TKE,
+           "        return Resposta(True, (Dica(DICA_SEM_CONTEUDO),))", "        return _NADA"))
+    # captura
+    add(_m("TKE36", "teclado", "o Shift+Esc deixa de gravar a tecla Esc (qualquer Esc cancela)", "T2: Esc cancela; Shift+Esc grava a tecla Esc", TKE,
+           L("        linha = self._linha", '        if nome == "ESC" and simples:', "            return self._cancelar()",
+             '        if nome == "ENTER" and simples and self._enter_duplo(agora):'),
+           L("        linha = self._linha", '        if nome == "ESC":', "            return self._cancelar()",
+             '        if nome == "ENTER" and simples and self._enter_duplo(agora):')))
+    add(_m("TKE37", "teclado", "a tecla confirma na primeira vez (sem proposta)", "T2/D6: a MESMA tecla de novo confirma", TKE,
+           "        if nome == self._proposta:", "        if True:"))
+    add(_m("TKE38", "teclado", "qualquer segunda tecla confirma a proposta", "T2/D6: só a mesma tecla confirma", TKE,
+           "        if nome == self._proposta:", "        if self._proposta:"))
+    add(_m("TKE39", "teclado", "a proposta não toca o bip", "T2/D6: o bit de confirmação", TKE,
+           "(ProporTecla(nome), Bip(), Dica(", "(ProporTecla(nome), Dica("))
+    add(_m("TKE40", "teclado", "confirmar a tecla que o comando já tem grava mesmo assim", "T2-6: sem mudança, nada é gravado", TKE,
+           "            return self._aplicar_alvo(nome, igual=nome == linha.alvo.upper())", "            return self._aplicar_alvo(nome, igual=False)"))
+    add(_m("TKE41", "teclado", "a tecla sem nome vira proposta", "T2: tecla sem nome no Studio não é capturada", TKE,
+           L("        if not nome:", "            return Resposta(True, (Dica(DICA_TECLA_DESCONHECIDA),))"),
+           L("        if False:", "            return Resposta(True, (Dica(DICA_TECLA_DESCONHECIDA),))")))
+    # tempo apertado (o Enter duplo)
+    add(_m("TKE42", "teclado", "o Enter duplo abre o tempo mesmo onde ele não vale (texto, só aperta, só solta)",
+           "T2-4: o tempo só é editável em tecla e botão de apertar e soltar", TKE,
+           "        if not linha.tempo_editavel:", "        if False:"))
+    add(_m("TKE43", "teclado", "o tempo apertado pode ir a zero (o piso cai de 0,01 para 0)", "T2-4: o modelo recusa duração 0 em tecla e botão", TKE,
+           "self._entrar_ajuste(Estado.TEMPO, linha.tempo, TEMPO_MINIMO, max(TETO, linha.tempo))",
+           "self._entrar_ajuste(Estado.TEMPO, linha.tempo, 0.0, max(TETO, linha.tempo))"))
+    add(_m("TKE44", "teclado", "o tempo apertado não passa do valor de hoje (o teto some)", "T2: o valor sobe até uma hora", TKE,
+           "self._entrar_ajuste(Estado.TEMPO, linha.tempo, TEMPO_MINIMO, max(TETO, linha.tempo))",
+           "self._entrar_ajuste(Estado.TEMPO, linha.tempo, TEMPO_MINIMO, linha.tempo)"))
+    # texto
+    add(_m("TKE45", "teclado", "o texto vazio passa a ser aplicado", "T2: o texto não pode ficar vazio (o modelo recusa)", TKE,
+           '            if atual == "":', "            if False:"))
+    add(_m("TKE46", "teclado", "o texto igual ao de hoje é gravado mesmo assim", "T2-6: sem mudança, nada é gravado", TKE,
+           "            efeitos = (Desmarcar(),) if atual == linha.texto else (AplicarTexto(linha.indice, atual), Desmarcar())",
+           "            efeitos = (AplicarTexto(linha.indice, atual), Desmarcar())"))
+    add(_m("TKE47", "teclado", "sem o texto do editor, o Enter confirma o texto de hoje", "T2: texto desconhecido não é confirmação", TKE,
+           '            atual = "" if texto is None else texto', "            atual = linha.texto if texto is None else texto"))
+    add(_m("TKE48", "teclado", "no texto, as teclas que se digitam são consumidas e o editor não as recebe", "T2/TEC-08: não atrapalhar quem digita", TKE,
+           "        self._outra = True  # o que se digita é do editor; mas depois dele o próximo Enter confirma, não é \"duplo\"\n        return _NADA",
+           "        self._outra = True  # o que se digita é do editor; mas depois dele o próximo Enter confirma, não é \"duplo\"\n        return Resposta(True, ())"))
+    add(_m("TKE49", "teclado", "digitar no texto não conta como 'outra tecla' (o Enter logo depois vira duplo)", "T2-3: sem outra tecla no meio", TKE,
+           "        self._outra = True  # o que se digita é do editor; mas depois dele o próximo Enter confirma, não é \"duplo\"\n        return _NADA",
+           "        return _NADA"))
+    # aplicativo
+    add(_m("TKE50", "teclado", "com o seletor de programa aberto as teclas são consumidas", "T2: o seletor é modal, as teclas são dele", TKE,
+           "        if self._estado == Estado.APLICATIVO:\n            return _NADA", "        if self._estado == Estado.APLICATIVO:\n            return Resposta(True, ())"))
+    add(_m("TKE51", "teclado", "um programa vazio escolhido no seletor é aplicado", "T2: sem programa escolhido, a edição é cancelada", TKE,
+           "        if valor is None or not normalized_app_target(valor):", "        if valor is None:"))
+    add(_m("TKE52", "teclado", "a resposta atrasada do seletor é aplicada mesmo fora do estado", "T2: só vale a resposta do seletor que está aberto", TKE,
+           L("        if self._estado != Estado.APLICATIVO:", "            return _NADA", "        if valor is None"),
+           L("        if False:", "            return _NADA", "        if valor is None")))
+    # botão
+    add(_m("TKE53", "teclado", "os botões do mouse dão a volta (em vez de parar nas pontas)", "T2-2: ← → param nas pontas da lista", TKE,
+           "MOUSE_BUTTON_NAMES[max(0, min(len(MOUSE_BUTTON_NAMES) - 1, posicao))]", "MOUSE_BUTTON_NAMES[posicao % len(MOUSE_BUTTON_NAMES)]"))
+    add(_m("TKE54", "teclado", "→ volta para o botão anterior e ← avança", "T2-2: → avança, ← volta", TKE,
+           '(1 if nome == "RIGHT" else -1)', '(-1 if nome == "RIGHT" else 1)'))
+    add(_m("TKE55", "teclado", "confirmar o mesmo botão (escrito Left no mapa) grava mesmo assim", "T2-6: a comparação do botão é sem maiúsculas", TKE,
+           "igual=self._botao == linha.alvo.lower())", "igual=self._botao == linha.alvo)"))
+    # ajuste com as setas
+    add(_m("TKE56", "teclado", "dentro de um ajuste Ctrl e Alt também são engolidos", "T2/TEC-08: Ctrl e Alt seguem para os atalhos da janela", TKE,
+           "        return _NADA if (tecla.ctrl or tecla.alt) else Resposta(True, ())", "        return Resposta(True, ())"))
+    add(_m("TKE57", "teclado", "dentro de um ajuste nada é engolido (a tabela abriria um editor de célula a cada letra)", "T2-9: o ajuste engole o resto", TKE,
+           "        return _NADA if (tecla.ctrl or tecla.alt) else Resposta(True, ())", "        return _NADA"))
+    add(_m("TKE58", "teclado", "a repetição do sistema da mesma seta reinicia a contagem", "T2-7: a rampa usa o relógio, não a repetição de tecla", TKE,
+           "        if nome == self._seta:\n            return Resposta(True, ())", "        if False:\n            return Resposta(True, ())"))
+    add(_m("TKE59", "teclado", "trocar de seta perde o que a primeira já andou", "T2-8: a outra seta troca a direção e soma o já andado", TKE,
+           "        self._atualizar(agora)  # trocar de direção com a outra apertada: antes, o que a primeira já andou", "        pass"))
+    add(_m("TKE60", "teclado", "o toque não é aplicado na hora de apertar", "T2-7: o toque (0,01 s) vale ao apertar", TKE,
+           "        self._valor = valor_apos(self._base, -1 if nome == \"LEFT\" else 1, 0.0, self._minimo, self._maximo)  # o toque, na hora de apertar",
+           "        pass  # o toque, na hora de apertar"))
+    add(_m("TKE61", "teclado", "o tempo da seta é contado desde o relógio zero e não desde o aperto", "T2-7: a rampa conta a partir do aperto", TKE,
+           "max(0.0, agora - self._t_seta)", "max(0.0, agora)"))
+    add(_m("TKE62", "teclado", "a rampa troca os sentidos (a esquerda aumenta depois do toque)", "T2: ← diminui, → aumenta", TKE,
+           '        sentido = -1 if self._seta == "LEFT" else 1', '        sentido = 1 if self._seta == "LEFT" else -1'))
+    add(_m("TKE63", "teclado", "os tiques deixam de andar o valor", "T2-7: a janela chama tique ~30 vezes por segundo", TKE,
+           "        if self._estado in (Estado.TEMPO, Estado.ESPERA) and self._atualizar(agora):", "        if self._estado in (Estado.TEMPO, Estado.ESPERA) and False:"))
+    add(_m("TKE64", "teclado", "soltar a seta não leva o valor ao instante da soltura", "T2-7: o valor final é o da curva no instante da soltura", TKE,
+           "        mudou = self._atualizar(agora)\n        self._seta = \"\"", "        mudou = False\n        self._seta = \"\""))
+    add(_m("TKE65", "teclado", "depois de soltar a seta os tiques continuam andando o valor", "T2: soltar encerra a contagem", TKE,
+           "        mudou = self._atualizar(agora)\n        self._seta = \"\"", "        mudou = self._atualizar(agora)"))
+    add(_m("TKE66", "teclado", "soltar uma seta que não é a ativa encerra a ativa", "T2-8: só a seta que está contando importa", TKE,
+           "        if self._estado not in (Estado.TEMPO, Estado.ESPERA) or nome.upper() != self._seta:", "        if self._estado not in (Estado.TEMPO, Estado.ESPERA):"))
+    add(_m("TKE67", "teclado", "o Enter com a seta apertada ignora o que ela andou desde o último tique", "T2: o Enter aceita o valor do instante", TKE,
+           "        self._atualizar(agora)  # com a seta ainda apertada, vale o valor do instante do Enter", "        pass"))
+    add(_m("TKE68", "teclado", "o Enter sem mudança grava o valor mesmo assim", "T2-6: sem mudança, nada é gravado", TKE,
+           "        if self._mudou():\n            aplicar", "        if True:\n            aplicar"))
+    add(_m("TKE69", "teclado", "ir e voltar ao valor do início grava um arredondamento", "T2-6: voltar ao valor do início vale como não mudar", TKE,
+           "        return self._valor != self._inicial and self._valor != round(self._inicial, _CASAS)", "        return self._valor != self._inicial"))
+    add(_m("TKE70", "teclado", "o tempo é gravado como espera e a espera como tempo", "T2: cada ajuste grava no campo certo", TKE,
+           "            aplicar = AplicarTempo if self._estado == Estado.TEMPO else AplicarEspera",
+           "            aplicar = AplicarEspera if self._estado == Estado.TEMPO else AplicarTempo"))
+    add(_m("TKE71", "teclado", "o apóstrofo no tempo já alterado passa para a espera e descarta o que mudou", "T2-1: nunca perder nem gravar sem o Enter", TKE,
+           "        if self._seta or self._mudou():\n            return Resposta(True, (Dica(DICA_ACEITE_ANTES),))",
+           "        if False:\n            return Resposta(True, (Dica(DICA_ACEITE_ANTES),))"))
+    add(_m("TKE72", "teclado", "o apóstrofo com a seta apertada (e valor igual) passa para a espera", "T2-1: com a seta apertada a troca é recusada", TKE,
+           "        if self._seta or self._mudou():\n            return Resposta(True, (Dica(DICA_ACEITE_ANTES),))",
+           "        if self._mudou():\n            return Resposta(True, (Dica(DICA_ACEITE_ANTES),))"))
+    add(_m("TKE73", "teclado", "na espera o apóstrofo recomeça a edição em vez de ser engolido", "T2: o apóstrofo só vale na navegação e no tempo", TKE,
+           '        if tecla.texto == "\'" and not (tecla.ctrl or tecla.alt) and self._estado == Estado.TEMPO:',
+           '        if tecla.texto == "\'" and not (tecla.ctrl or tecla.alt):'))
+    add(_m("TKE74", "teclado", "a espera abre com o tempo apertado no lugar do valor da espera", "T2-5: a espera abre no valor de hoje", TKE,
+           "self._entrar_ajuste(Estado.ESPERA, linha.espera, linha.espera_minima, max(TETO, linha.espera))\n        return Resposta(True, (Marcar(",
+           "self._entrar_ajuste(Estado.ESPERA, linha.tempo, linha.espera_minima, max(TETO, linha.espera))\n        return Resposta(True, (Marcar("))
+    add(_m("TKE75", "teclado", "o piso da espera some (ela pára em 0 e não na sobreposição)", "T2-5: a espera pode ser negativa até o piso do modelo", TKE,
+           "self._entrar_ajuste(Estado.ESPERA, linha.espera, linha.espera_minima, max(TETO, linha.espera))\n        return Resposta(True, (Marcar(",
+           "self._entrar_ajuste(Estado.ESPERA, linha.espera, 0.0, max(TETO, linha.espera))\n        return Resposta(True, (Marcar("))
+    add(_m("TKE76", "teclado", "o texto do valor deixa de avisar que chegou ao mínimo", "T2: a dica mostra os limites", TKE,
+           '" (mínimo)" if valor <= self._minimo', '"" if valor <= self._minimo'))
+    add(_m("TKE77", "teclado", "o texto do valor deixa de avisar que chegou ao máximo", "T2: a dica mostra os limites", TKE,
+           '" (máximo)" if valor >= self._maximo', '"" if valor >= self._maximo'))
+    add(_m("TKE78", "teclado", "a espera negativa não diz que o comando começa antes do fim do anterior", "T2-5: a dica explica a sobreposição", TKE,
+           '        if valor < 0:\n            return f"Espera antes deste comando: {numero} (começa', '        if False:\n            return f"Espera antes deste comando: {numero} (começa'))
+    add(_m("TKE79", "teclado", "descartar não limpa a edição", "T2-6: o foco que sai, a linha ou o mapa que mudam descartam", TKE,
+           "        em_edicao = self._estado != Estado.NAVEGANDO\n        self._limpar()", "        em_edicao = self._estado != Estado.NAVEGANDO"))
+    add(_m("TKE80", "teclado", "descartar sem nada em edição pede um Cancelar à janela", "T2: descartar navegando não faz nada", TKE,
+           "        return Resposta(False, (Cancelar(),) if em_edicao else ())", "        return Resposta(False, (Cancelar(),))"))
+    # a ficha da linha e a dica
+    add(_m("TKE81", "teclado", "a tecla que só aperta passa a ter tempo apertado editável", "T2-4: só 'apertar e soltar' tem tempo apertado", TKE,
+           "    editavel = cmd.type in (InputType.KEY, InputType.MOUSE_BUTTON) and cmd.action == ActionType.PRESS_AND_RELEASE",
+           "    editavel = cmd.type in (InputType.KEY, InputType.MOUSE_BUTTON) and cmd.action != ActionType.RELEASE"))
+    add(_m("TKE82", "teclado", "o texto passa a ter tempo apertado editável", "T2-4: o tempo do texto é calculado", TKE,
+           "    editavel = cmd.type in (InputType.KEY, InputType.MOUSE_BUTTON) and cmd.action == ActionType.PRESS_AND_RELEASE",
+           "    editavel = cmd.type in (InputType.KEY, InputType.MOUSE_BUTTON, InputType.TEXT) and cmd.action == ActionType.PRESS_AND_RELEASE"))
+    add(_m("TKE83", "teclado", "a ficha traz a espera do comando anterior", "T2: a ficha é do comando da linha", TKE,
+           "espera=mapa.gap_before(indice), espera_minima=mapa.min_gap_before(indice))", "espera=mapa.gap_before(max(0, indice - 1)), espera_minima=mapa.min_gap_before(indice))"))
+    add(_m("TKE84", "teclado", "a ficha traz o piso no lugar da espera", "T2: a ficha é do comando da linha", TKE,
+           "espera=mapa.gap_before(indice), espera_minima=mapa.min_gap_before(indice))", "espera=mapa.min_gap_before(indice), espera_minima=mapa.min_gap_before(indice))"))
+    add(_m("TKE85", "teclado", "a dica da captura deixa de ensinar o Shift+Esc", "T2/TEC-09: a dica diz como gravar a tecla Esc", TKE,
+           " (para gravar a própria Esc, aperte Shift+Esc)", ""))
+    add(_m("TKE86", "teclado", "a dica do tempo deixa de dizer que o apóstrofo vai para a espera", "T2/TEC-09: toda tecla tratada está na dica", TKE,
+           "  ·  ' vai para a espera\"", "\""))
+    add(_m("TKE87", "teclado", "a dica da espera deixa de dizer que Esc descarta", "T2/TEC-09: toda tecla tratada está na dica", TKE,
+           'Enter aceita  ·  Esc descarta"\n\n\n_ROTULO_DO_BOTAO', 'Enter aceita"\n\n\n_ROTULO_DO_BOTAO'))
+    add(_m("TKE88", "teclado", "a tabela de teclas do estado do tempo esquece o apóstrofo", "T2/TEC-09: a tabela é exatamente o que o estado faz", TKE,
+           '    Estado.TEMPO: ("LEFT", "RIGHT", "ENTER", "ESC", "\'"),', '    Estado.TEMPO: ("LEFT", "RIGHT", "ENTER", "ESC"),'))
+    add(_m("TKE89", "teclado", "a chave de uma tecla põe o Shift antes do Ctrl", "T2: ordem Ctrl, Alt, Shift", TKE,
+           '    prefixo = ("CTRL+" if tecla.ctrl else "") + ("ALT+" if tecla.alt else "") + ("SHIFT+" if tecla.shift else "")',
+           '    prefixo = ("SHIFT+" if tecla.shift else "") + ("CTRL+" if tecla.ctrl else "") + ("ALT+" if tecla.alt else "")'))
+
     # ---- as regras ligadas à ativação (ativacao.py, ativacao_ui.py) e à janela (main_window.py, protegida pelo teste estático)
     add(_m("ATV63", "ativacao", "a tecla que o mapa JÁ TEM passa a ser recusada se for reservada (mapas antigos deixariam de salvar)",
            "D12: manter a tecla que o mapa já tinha nunca é recusado, o que já funciona continua funcionando", ATV,

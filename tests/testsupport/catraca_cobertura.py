@@ -42,6 +42,9 @@ GRUPOS = {
     # widgets (ativacao_ui) é da interface.
     "ativacao": ("ativacao", "atalhos_reservados"),
     "controle": ("controle_ui",),  # pausar/continuar pelas teclas: sem widgets (não importa o Qt), coberto sem a janela
+    # 25.9, T2: a edição pelo teclado (estado, teclas abstratas, efeitos e a curva da seta segurada). Também sem widgets; quem a liga à
+    # tabela (T3) é da interface.
+    "teclado": ("teclado_edicao",),
     "interface": ("app", "ativacao_ui", "command_editor", "main_window", "overlays", "timeline", "tutorial"),
 }
 IGNORADOS = frozenset({"__init__"})
