@@ -1009,6 +1009,50 @@ class AutomationMap:
         gaps = self._gaps_before(self.commands) if preserve_gaps else {id(c): 0.0 for c in self.commands}
         self._retime(self.commands, gaps)
 
+    # ---- A espera de um comando (25.9, teclado T2) -----------------------------------------------------------------------
+    #
+    # "Espera" é a lacuna de `_gaps_before` vista de fora: quanto o comando começa depois do fim programado do anterior (o primeiro,
+    # depois do instante 0), com sinal. É o que a tecla `'` do editor ajusta (md/FICHA_TECLADO_T2_25_9.md, seções 3 e 6).
+
+    def _check_index(self, index: int) -> None:
+        if not 0 <= index < len(self.commands):
+            raise IndexError(f"comando {index} fora do mapa (ele tem {len(self.commands)})")
+
+    def gap_before(self, index: int) -> float:
+        """A espera do comando `index`: quanto ele começa depois do fim programado do anterior (o primeiro, depois do instante 0).
+
+        Tem sinal: negativa é sobreposição, o normal num mapa gravado. É a mesma lacuna que `reflow_timeline` preserva."""
+        self._check_index(index)
+        cmd = self.commands[index]
+        if index == 0:
+            return max(0.0, float(cmd.start))
+        previous = self.commands[index - 1]
+        return float(cmd.start) - (float(previous.start) + float(previous.computed_delay_after))
+
+    def min_gap_before(self, index: int) -> float:
+        """A menor espera que `set_gap_before` aceita para o comando `index`: a que leva ao instante 0 o mais cedo entre ele e os seguintes (todos andam junto).
+
+        Nunca fica acima da espera de hoje: num mapa com início negativo, que a validação já aponta, o piso é o valor atual."""
+        current = self.gap_before(index)
+        earliest = min(float(c.start) for c in self.commands[index:])
+        return current - max(0.0, earliest)
+
+    def set_gap_before(self, index: int, value: float) -> None:
+        """Muda só a espera do comando `index`: ele e todos os seguintes andam junto, para a frente ou para trás.
+
+        Os anteriores, a ordem, as durações, os atrasos e as outras esperas (inclusive as negativas, as sobreposições) ficam como
+        estavam. Recusa (ValueError, sem mudar nada) o valor que não é um número finito e o que fica abaixo de `min_gap_before`,
+        porque algum início iria para antes do instante 0 e `_retime` o cortaria em silêncio."""
+        number = float(value)
+        if not math.isfinite(number):
+            raise ValueError(f"espera inválida: {value!r}")
+        minimum = self.min_gap_before(index)  # também confere o índice
+        if number < minimum - _TIME_EPSILON:
+            raise ValueError(f"espera de {number:g} s abaixo do mínimo ({minimum:g} s): um comando começaria antes do instante 0")
+        gaps = self._gaps_before(self.commands)
+        gaps[id(self.commands[index])] = number
+        self._retime(self.commands, gaps)
+
     def remove_commands(self, command_ids: set[str] | list[str], compact: bool = True) -> list[Command]:
         """Remove comandos pela identidade e opcionalmente compacta o tempo."""
         ids = {str(x) for x in command_ids}

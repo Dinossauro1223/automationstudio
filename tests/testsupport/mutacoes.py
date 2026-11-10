@@ -959,6 +959,51 @@ def catalogo() -> list[Mutante]:
            "TEC-10: o que o monitor não entende é ignorado, nunca levanta", CORE,
            "    if isinstance(vk, bool) or not isinstance(vk, int):", "    if False:"))
 
+    # ---- a espera entre comandos no modelo (25.9, T2): AutomationMap.gap_before, min_gap_before e set_gap_before.
+    # O teste é tests/unit/test_espera_entre_comandos.py (os três mapas reais, linha por linha).
+    add(_m("ESP01", "espera", "a espera do primeiro comando deixa de ser o início dele (passa a ser sempre 0)",
+           "T2: a espera do primeiro comando é o próprio início (Flins combo começa em 0,7014 s)", CORE,
+           L("        if index == 0:", "            return max(0.0, float(cmd.start))"), L("        if index == 0:", "            return 0.0")))
+    add(_m("ESP02", "espera", "o atraso do comando anterior sai do fim programado (a espera passa a contar só a duração)",
+           "T2: a espera é a mesma lacuna que reflow_timeline preserva (fim programado = duração + atraso)", CORE,
+           "        return float(cmd.start) - (float(previous.start) + float(previous.computed_delay_after))",
+           "        return float(cmd.start) - (float(previous.start) + float(previous.duration))"))
+    add(_m("ESP03", "espera", "a espera sai com o sinal trocado (a sobreposição viraria espera positiva)",
+           "T2: a espera tem sinal: negativa é sobreposição (444 das 933 esperas do Flins combo)", CORE,
+           "        return float(cmd.start) - (float(previous.start) + float(previous.computed_delay_after))",
+           "        return (float(previous.start) + float(previous.computed_delay_after)) - float(cmd.start)"))
+    add(_m("ESP04", "espera", "o piso da espera só olha o próprio comando, não os seguintes que começam antes dele",
+           "T2: puxar a espera não pode jogar um seguinte para antes do instante 0", CORE,
+           "        earliest = min(float(c.start) for c in self.commands[index:])", "        earliest = float(self.commands[index].start)"))
+    add(_m("ESP05", "espera", "o piso da espera passa a olhar também os comandos ANTERIORES (que não andam)",
+           "T2: só o comando e os seguintes andam; o piso vem deles", CORE,
+           "        earliest = min(float(c.start) for c in self.commands[index:])", "        earliest = min(float(c.start) for c in self.commands)"))
+    add(_m("ESP06", "espera", "o piso da espera deixa de existir (é sempre a espera de hoje: não dá para puxar)",
+           "T2: a espera pode ir até onde o comando chega ao instante 0", CORE,
+           "        return current - max(0.0, earliest)", "        return current"))
+    add(_m("ESP07", "espera", "num mapa com início negativo o piso passa a EXIGIR subir a espera",
+           "T2: o piso nunca fica acima da espera de hoje", CORE,
+           "        return current - max(0.0, earliest)", "        return current - earliest"))
+    add(_m("ESP08", "espera", "a mudança de espera abaixo do piso passa a ser aceita (o início seria cortado em silêncio no 0)",
+           "T2: valor abaixo do piso é recusado e nada muda", CORE,
+           "        if number < minimum - _TIME_EPSILON:", "        if False:"))
+    add(_m("ESP09", "espera", "o próprio piso passa a ser recusado (a comparação deixa de ser inclusiva)",
+           "T2: no piso exato o comando começa em 0 e vale", CORE,
+           "        if number < minimum - _TIME_EPSILON:", "        if number <= minimum:"))
+    add(_m("ESP10", "espera", "NaN e infinito passam a ser aceitos como espera",
+           "T2: espera inválida é recusada sem mudar nada", CORE,
+           "        if not math.isfinite(number):", "        if False:"))
+    add(_m("ESP11", "espera", "mudar a espera move só o comando, não os seguintes",
+           "T2: o comando e todos os seguintes andam juntos", CORE,
+           L("        gaps[id(self.commands[index])] = number", "        self._retime(self.commands, gaps)"),
+           "        self.commands[index].start = max(0.0, float(self.commands[index].start) + number - self.gap_before(index))"))
+    add(_m("ESP12", "espera", "a nova espera vai para o comando ANTERIOR ao pedido",
+           "T2: a espera mudada é a do comando pedido", CORE,
+           "        gaps[id(self.commands[index])] = number", "        gaps[id(self.commands[max(0, index - 1)])] = number"))
+    add(_m("ESP13", "espera", "um índice negativo passa a ser aceito (o Python o contaria de trás para frente)",
+           "T2: índice fora do mapa é IndexError, inclusive o negativo", CORE,
+           "        if not 0 <= index < len(self.commands):", "        if not -len(self.commands) <= index < len(self.commands):"))
+
     # ---- as regras ligadas à ativação (ativacao.py, ativacao_ui.py) e à janela (main_window.py, protegida pelo teste estático)
     add(_m("ATV63", "ativacao", "a tecla que o mapa JÁ TEM passa a ser recusada se for reservada (mapas antigos deixariam de salvar)",
            "D12: manter a tecla que o mapa já tinha nunca é recusado, o que já funciona continua funcionando", ATV,
