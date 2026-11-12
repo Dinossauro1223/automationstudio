@@ -273,7 +273,7 @@ def registrar_plano(plano: Plano, gerente: Any, criar_callback: Callable[[str], 
     erros: list[str] = []
     for registro in plano.registros:
         try:
-            gerente.register(registro.tecla, criar_callback(registro.acao))
+            gerente.register(registro.tecla, criar_callback(registro.acao), suspensivel=registro.e_mapa)
         except (RuntimeError, ValueError) as exc:  # HotkeyConflictError é um RuntimeError
             erros.append(f"Não foi possível ativar a tecla “{registro.tecla}” de “{registro.nome}”: {exc}")
     return erros
