@@ -23,7 +23,7 @@ Os estados:
   ESPERA      ← → mudam a espera antes do comando (a lacuna do modelo: `AutomationMap.gap_before`); Enter aceita, Esc descarta.
 
 Nos ajustes (BOTAO, TEMPO, ESPERA) as teclas que o controlador não usa são ENGOLIDAS (consumidas sem efeito), menos as com Ctrl ou
-Alt, que seguem para os atalhos da janela: sem isso a tabela abriria um editor de célula a cada letra digitada. O valor em edição só
+Alt, que seguem para os atalhos da janela: sem isso a tabela mudaria a linha atual (↑ ↓, Home, End, busca por letra digitada). O valor em edição só
 vai para o mapa no Enter (T2-6); Esc, o foco que sai ou a linha que muda o descartam (`descartar`).
 """
 from __future__ import annotations

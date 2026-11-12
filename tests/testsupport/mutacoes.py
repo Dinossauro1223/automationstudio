@@ -1148,7 +1148,7 @@ def catalogo() -> list[Mutante]:
     # ajuste com as setas
     add(_m("TKE56", "teclado", "dentro de um ajuste Ctrl e Alt também são engolidos", "T2/TEC-08: Ctrl e Alt seguem para os atalhos da janela", TKE,
            "        return _NADA if (tecla.ctrl or tecla.alt) else Resposta(True, ())", "        return Resposta(True, ())"))
-    add(_m("TKE57", "teclado", "dentro de um ajuste nada é engolido (a tabela abriria um editor de célula a cada letra)", "T2-9: o ajuste engole o resto", TKE,
+    add(_m("TKE57", "teclado", "dentro de um ajuste nada é engolido (a tabela mudaria a linha atual a cada letra ou seta)", "T2-9: o ajuste engole o resto", TKE,
            "        return _NADA if (tecla.ctrl or tecla.alt) else Resposta(True, ())", "        return _NADA"))
     add(_m("TKE58", "teclado", "a repetição do sistema da mesma seta reinicia a contagem", "T2-7: a rampa usa o relógio, não a repetição de tecla", TKE,
            "        if nome == self._seta:\n            return Resposta(True, ())", "        if False:\n            return Resposta(True, ())"))
