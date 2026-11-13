@@ -1738,6 +1738,7 @@ class CommandTableWidget(QWidget):
     test_requested = Signal(object)
     preview_requested = Signal(object)
     validate_requested = Signal()
+    passo_a_passo_requested = Signal(object)  # F52: os ids dos comandos escolhidos (vazio = a automação inteira)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -2767,6 +2768,10 @@ class CommandTableWidget(QWidget):
             groups.addSeparator()
             for g in self._automation_map.groups.values():
                 a=groups.addAction(f'● {g.name}'); a.triggered.connect(lambda checked=False,gid=g.id,ids=set(context_ids):self._assign_group_ids(gid, ids))
+        menu.addSeparator()
+        passo_a=menu.addAction('⏭ Executar passo a passo a partir daqui')  # F52: um comando por vez, a partir do primeiro selecionado
+        passo_a.setEnabled(bool(context_ids))  # sem uma linha escolhida não há "daqui"
+        passo_a.triggered.connect(lambda: self.passo_a_passo_requested.emit(set(context_ids)))
         menu.exec(self.table.viewport().mapToGlobal(pos))
 
     def _copy_selected(self):
@@ -2956,6 +2961,8 @@ class CommandTableWidget(QWidget):
         test_a.triggered.connect(lambda: self.test_requested.emit(set(ids)))
         prev_a=menu.addAction('▷ Pré-visualizar automação')
         prev_a.triggered.connect(lambda: self.preview_requested.emit(self._automation_map))
+        passo_a=menu.addAction('⏭ Executar passo a passo')  # F52: um comando por vez; sem seleção, a automação inteira
+        passo_a.triggered.connect(lambda: self.passo_a_passo_requested.emit(set(ids)))
         menu.exec(self.btn_more.mapToGlobal(self.btn_more.rect().bottomLeft()))
 
     def _export_selected_commands(self, ids: set[str]) -> None:

@@ -1076,6 +1076,9 @@ class ExecutionEngine:
         self.on_chain_requested: list[Callable[[str], None]] = []
         # Tempo (s) que o evento atual passou em barreiras; _play_timeline o soma ao relógio da timeline.
         self._barrier_elapsed = 0.0
+        # F52 (passo a passo): None na execução normal, e então nada muda. Com um objeto aqui (ver passo_a_passo.py),
+        # `_play_timeline` pergunta a ele, antes do primeiro evento de cada comando, se deve parar e esperar o usuário.
+        self.passo_a_passo = None
 
     def configure_readiness(self, history: dict | None = None, default_timeout: float = 0.0, adaptive_learning: bool = True, save_callback: Callable[[dict], None] | None = None) -> None:
         """Configura a espera adaptativa sem impor RAM mínima."""
@@ -1226,6 +1229,13 @@ class ExecutionEngine:
         for event in timeline:
             target_elapsed = event.time / speed
 
+            # F52: no passo a passo a execução PARA antes do primeiro evento de cada comando (estado PAUSED: `resume()` é o
+            # "próximo passo", `stop()` encerra) e, ao ser liberada, faz esse evento na hora, sem cumprir a espera planejada
+            # até ele. Fora do passo a passo `_pede_passo` é sempre False e nada disto acontece.
+            if self._pede_passo(event) and self._parar_para_o_passo():
+                self._pause_event.wait()
+                engine_start = self._clock.monotonic() - target_elapsed
+
             while True:
                 if self._stop_requested.is_set():
                     return False
@@ -1255,6 +1265,37 @@ class ExecutionEngine:
                     pass
 
         return True
+
+    def _pede_passo(self, event: Event) -> bool:
+        """True se o passo a passo pede para parar antes deste evento. Sem passo a passo é sempre False. Um defeito no objeto
+        do passo a passo nunca derruba a execução: o gancho se desliga e a execução segue como se ele não existisse."""
+        passo = self.passo_a_passo
+        if passo is None:
+            return False
+        try:
+            return bool(passo.parar_antes(event, self._current_map))
+        except Exception as exc:  # noqa: BLE001 - o passo a passo é só um auxílio de teste
+            self.passo_a_passo = None
+            _append_runtime_log(f"PASSO A PASSO gancho desligado erro={type(exc).__name__}: {exc}")
+            return False
+
+    def _parar_para_o_passo(self) -> bool:
+        """Pausa a execução para esperar o "próximo passo". True se ela ficou parada esperando (então a thread deve esperar a
+        liberação); False se não deu para pausar (parando, com erro). Primeiro some o sinal de pausa e só depois o estado
+        vira PAUSED: quem vê PAUSED já encontra a pausa feita, e um `resume()` imediato não se perde (o `pause()` comum
+        faz o contrário: nele o `resume()` pode vir entre as duas linhas)."""
+        estado = self.state.state
+        if estado == State.PAUSED:
+            return True  # já estava pausada (pela tecla de pausa): espera a liberação do mesmo jeito
+        if estado != State.RUNNING:
+            return False
+        self._pause_event.clear()
+        try:
+            self.state.transition_to(State.PAUSED)
+            return True
+        except core.InvalidStateTransition:
+            self._pause_event.set()
+            return False
 
     def _checkpoint(self) -> bool:
         """Ponto de pausa/parada antes de enviar input. Bloqueia enquanto pausado; False significa parar."""

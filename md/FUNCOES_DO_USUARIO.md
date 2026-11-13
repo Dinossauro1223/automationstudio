@@ -23,6 +23,7 @@ Este é o catálogo do que o programa faz. O **ID não muda** (nem quando o bot�
 | ID | Função | Onde está hoje | Atalho | Android |
 |---|---|---|---|---|
 | F10 | Executar a automação | Barra (em todas as telas): ▶ Executar | — | a definir |
+| F52 | Executar a automação passo a passo (um comando por vez, a partir do primeiro ou de um comando escolhido) | Menu ou diálogo (command_editor.py): Executar passo a passo | — | a definir |
 | F11 | Parar a execução | Barra (em todas as telas): ■ Parar | — | a definir |
 | F12 | Parar tudo (emergência) | Barra (em todas as telas): 🛑 Parar tudo | tecla de parada | a definir |
 | F13 | Ver o monitor de execução | Barra (em todas as telas): ▣ Monitor de execução | — | a definir |
