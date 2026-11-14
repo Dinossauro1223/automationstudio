@@ -45,9 +45,9 @@ GRUPOS = {
     "ativacao": ("ativacao", "atalhos_reservados"),
     "controle": ("controle_ui",),  # pausar/continuar pelas teclas: sem widgets (não importa o Qt), coberto sem a janela
     # 25.9, T2: a edição pelo teclado (estado, teclas abstratas, efeitos e a curva da seta segurada). Também sem widgets. T3a: e o que
-    # grava no mapa o que ela decidiu (teclado_aplicar) e a tradução da tecla do Qt (teclado_teclas, que recebe o Qt
-    # injetado); quem a liga à tabela e ao Qt é da interface.
-    "teclado": ("teclado_edicao", "teclado_aplicar", "teclado_teclas"),
+    # grava no mapa o que ela decidiu (teclado_aplicar), a tradução da tecla do Qt (teclado_teclas, que recebe o Qt
+    # injetado) e a ligação do controlador com uma porta (teclado_ligacao); a porta de verdade, com Qt, é da interface (teclado_ui).
+    "teclado": ("teclado_edicao", "teclado_aplicar", "teclado_teclas", "teclado_ligacao"),
     "interface": ("app", "ativacao_ui", "command_editor", "main_window", "overlays", "timeline", "tutorial"),
 }
 IGNORADOS = frozenset({"__init__"})

@@ -323,6 +323,11 @@ def dica_do_estado(estado: Estado, linha: LinhaInfo | None = None, proposta: str
 _ROTULO_DO_BOTAO = {"left": "esquerdo", "right": "direito", "middle": "do meio", "x1": "lateral X1", "x2": "lateral X2"}
 
 
+def rotulo_do_botao(botao: str) -> str:
+    """O botão do mouse em português ("direito"): o que a barra de status mostra ao escolher e depois de gravar. O nome que a tabela não conhece volta como veio."""
+    return _ROTULO_DO_BOTAO.get(botao, botao)
+
+
 # ------------------------------------------------------------------------------------------------ o controlador
 class EdicaoPorTeclado:
     """O estado da edição pelo teclado. Uma instância por janela; ver a docstring do módulo."""
@@ -477,7 +482,7 @@ class EdicaoPorTeclado:
 
     # ---- botão do mouse -------------------------------------------------------------------------------------------------
     def _texto_do_botao(self) -> str:
-        return f"Botão do mouse: {_ROTULO_DO_BOTAO.get(self._botao, self._botao)} ({self._botao})"
+        return f"Botão do mouse: {rotulo_do_botao(self._botao)} ({self._botao})"
 
     def _botao_aberto(self, tecla: Tecla, nome: str, simples: bool, agora: float) -> Resposta:
         linha = self._linha
