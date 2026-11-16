@@ -118,7 +118,7 @@ def test_o_mock_aceita_e_registra_qualquer_nome(monkeypatch, fake_clock):
 
 
 # ----------------------------------------------------------------------------------------- mouse
-@pytest.mark.parametrize("botao", ["left", "right", "middle", "x1", "x2"])
+@pytest.mark.parametrize("botao", core.MOUSE_BUTTON_NAMES)  # fonte única: a mesma lista que a validação do comando usa
 @pytest.mark.parametrize("perfil", PERFIS)
 def test_cada_botao_do_mouse_aperta_e_solta_um_par(perfil, botao, monkeypatch, fake_clock):
     alvo = _alvo(perfil, monkeypatch, fake_clock)
@@ -143,6 +143,22 @@ def test_botao_desconhecido_nunca_vira_clique_em_outro_botao(perfil, monkeypatch
         with pytest.raises(ValueError, match="lefft"):
             chamada("lefft")
     assert alvo.verbos() == []
+
+
+@pytest.mark.parametrize("nome", [*core.MOUSE_BUTTON_NAMES, "LEFT", "Right", "X1", "X2",
+                                  "lefft", "unknown", "x3", "esquerdo", " left", "left ", ""])
+@pytest.mark.parametrize("perfil", ESTRITOS)
+def test_a_validacao_do_comando_recusa_exatamente_o_botao_que_o_backend_recusa(perfil, nome, monkeypatch, fake_clock):
+    # F2 (25.9): o mapa com um botão que o backend recusaria nem começa a executar. A validação e o backend precisam
+    # concordar nos dois sentidos: o que executa não pode ser recusado e o que falharia na execução não pode passar.
+    alvo = _alvo(perfil, monkeypatch, fake_clock)
+    try:
+        alvo.backend.mouse_down(nome)
+        o_backend_aceita = True
+    except ValueError:
+        o_backend_aceita = False
+    comando = core.Command(type=core.InputType.MOUSE_BUTTON, target=nome, duration=0.1)
+    assert (comando.validate() == []) == o_backend_aceita, (nome, o_backend_aceita, comando.validate())
 
 
 def test_o_mock_recebe_os_botoes_laterais_com_o_nome_cru(monkeypatch, fake_clock):

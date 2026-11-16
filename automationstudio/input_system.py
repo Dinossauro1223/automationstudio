@@ -54,7 +54,7 @@ def _resolve_key(name: str):
 def _resolve_mouse_button(name: str):
     """Traduz o nome de botão do Studio para o botão do pynput. Botão desconhecido é erro, nunca clique esquerdo."""
     key = str(name).lower()
-    button = getattr(Button, key, None) if (Button is not None and key in {"left", "right", "middle", "x1", "x2"}) else None
+    button = getattr(Button, key, None) if (Button is not None and key in MOUSE_BUTTON_NAMES) else None
     if button is None:
         raise ValueError(f"Botão de mouse não suportado pelo backend pynput: {name}")
     return button
@@ -1384,7 +1384,7 @@ class ExecutionEngine:
     def _launch_application(self, target: str) -> int | None:
         if os.name != "nt":
             raise RuntimeError("Abertura de aplicativos está disponível nesta versão somente no Windows.")
-        exe = str(target or "").strip().strip('"')
+        exe = normalized_app_target(target)
         if not exe:
             raise RuntimeError("Nenhum aplicativo foi definido para abrir.")
         try:

@@ -58,7 +58,8 @@ def test_atalho_vazio_ou_nulo_vira_o_atalho_padrao(bruto, esperado):
 
 @pytest.mark.parametrize("bruto,esperado", [(0, 1), ("3", 3), (2.7, 2), (-1, -1), (-5, -5), (7, 7)])
 def test_contagem_de_repeticoes_e_convertida_para_inteiro(bruto, esperado):
-    # 0 vira 1 (nunca "zero vezes"). Negativos além de -1 passam: lacuna registrada em test_validation_gaps.py.
+    # 0 vira 1 (nunca "zero vezes"). Negativos além de -1 carregam como estão (a leitura não corrige em silêncio) e é a
+    # validação que os recusa na hora de executar (F2, 25.9): ver test_validation_gaps.py.
     assert _ler(name="H", repeat_count=bruto).repeat_count == esperado
 
 

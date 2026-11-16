@@ -251,6 +251,18 @@ def test_mudar_o_tipo_de_botao_para_tecla_nao_leva_o_nome_do_botao_junto(gui):
     assert dialogo.result_command().type == K
 
 
+def test_o_editor_oferece_exatamente_os_botoes_que_a_validacao_aceita(gui):
+    # F2 (25.9): a lista do editor e a validação do comando (core.MOUSE_BUTTON_NAMES) não podem divergir. Um botão que o
+    # editor oferece e a validação recusa deixaria o usuário sem conseguir executar o mapa que acabou de montar.
+    dialogo = _abrir(Command(type=B, target="left", start=0.0, duration=0.1))
+    nomes = [dialogo.target_combo.itemData(i) for i in range(dialogo.target_combo.count())]
+    assert nomes == list(core.MOUSE_BUTTON_NAMES), nomes
+    for nome in nomes:
+        dialogo.target_combo.setCurrentIndex(dialogo.target_combo.findData(nome))
+        comando = dialogo.result_command()
+        assert comando.target == nome and comando.validate() == [], (nome, comando.validate())
+
+
 @pytest.mark.parametrize("original", [Command(type=K, target="A", start=0.0, duration=0.1),
                                       Command(type=B, target="x1", start=0.0, duration=0.1)], ids=["tecla", "botao"])
 def test_mudar_o_tipo_para_abrir_aplicativo_nao_leva_o_alvo_de_tecla_ou_botao_junto(gui, original):

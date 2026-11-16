@@ -264,6 +264,20 @@ class ActionType(str, Enum):
     RELEASE = "release"                # KEYUP isolado
     PRESS_AND_RELEASE = "press_and_release"
 
+# Nomes de botão do mouse que o executor sabe apertar (o alvo de um comando MOUSE_BUTTON). FONTE ÚNICA: a validação do
+# comando e o resolvedor do backend pynput leem esta lista, e o teste de contrato (tests/contract/test_backend_contract.py)
+# confere que os backends estritos (pynput e Win32) aceitam todos e recusam o resto (o Mock, dublê dos testes, aceita tudo).
+# Os backends comparam em minúsculas (str(nome).lower()), então "Left" executa; a validação faz a mesma conta.
+# Nomes crus do sistema: "x1" é o XBUTTON1 do Windows (decisão D1).
+MOUSE_BUTTON_NAMES: tuple[str, ...] = ("left", "right", "middle", "x1", "x2")
+
+def normalized_app_target(target) -> str:
+    """O programa que um comando APP_OPEN abre, como o executor o usa: sem espaços nas pontas e sem aspas externas.
+
+    Vazio significa "não há o que abrir": o executor recusa (RuntimeError) e a validação do comando também.
+    """
+    return str(target or "").strip().strip('"')
+
 class CommandValidationError(ValueError):
     """Erro de validação de um Command individual."""
 
@@ -437,6 +451,11 @@ class Command:
 
         if self.type in (InputType.KEY, InputType.MOUSE_BUTTON) and not self.target:
             errors.append(f"[{self.id}] comando do tipo '{self.type}' sem tecla/botão definido.")
+        elif self.type == InputType.MOUSE_BUTTON and str(self.target).lower() not in MOUSE_BUTTON_NAMES:
+            # O executor recusaria no meio da execução (ValueError do backend); aqui o mapa nem começa.
+            errors.append(f"[{self.id}] botão do mouse desconhecido: '{self.target}' (use {', '.join(MOUSE_BUTTON_NAMES)}).")
+        if self.type == InputType.APP_OPEN and not normalized_app_target(self.target):
+            errors.append(f"[{self.id}] abrir aplicativo sem o programa a abrir (caminho ou comando) definido.")
         if self.type == InputType.TEXT and not self.text:
             errors.append(f"[{self.id}] comando de texto sem conteúdo definido.")
 
@@ -799,6 +818,9 @@ class AutomationMap:
 
         if self.repeat_count == 0:
             errors.append(f"Mapa '{self.name}': repeat_count não pode ser 0 (use 1, N ou -1 para infinito).")
+        elif self.repeat_count < -1:
+            # Só -1 (infinito) e os positivos fazem sentido; o motor trataria -2 como "uma vez" em silêncio.
+            errors.append(f"Mapa '{self.name}': repeat_count {self.repeat_count} é inválido (use 1, N ou -1 para infinito).")
 
         if self.repeat_interval < 0:
             errors.append(f"Mapa '{self.name}': repeat_interval negativo.")
