@@ -12,6 +12,9 @@ from automationstudio.input_system import PynputInputBackend
 from testsupport.fakes import FakePynput, FakeUser32, FakeWindll, pretend_windows
 
 TECLADO_NUMERICO = [f"NUM{i}" for i in range(10)] + ["NUM/", "NUM*", "NUM-", "NUM+", "NUM.", "NUMENTER"]
+# 25.9: o monitor passou a gravar F13 a F24. O pynput só garante F1 a F20 em todo sistema; F21 a F24 o fallback não envia (levanta
+# ValueError, nunca outra tecla). O backend de produção no Windows, o SendInput, envia as 24 (tests/contract/test_backend_win32.py).
+F21_A_F24 = [f"F{i}" for i in range(21, 25)]
 
 
 def _backend(monkeypatch):
@@ -39,7 +42,7 @@ def test_sem_pynput_o_backend_recusa_e_ensina_a_instalar(monkeypatch):
     ("SPACE", "<space>"), ("TAB", "<tab>"), ("BACKSPACE", "<backspace>"), ("DELETE", "<delete>"), ("INSERT", "<insert>"),
     ("HOME", "<home>"), ("END", "<end>"), ("PAGEUP", "<page_up>"), ("PAGEDOWN", "<page_down>"),
     ("UP", "<up>"), ("DOWN", "<down>"), ("LEFT", "<left>"), ("RIGHT", "<right>"), ("CAPSLOCK", "<caps_lock>"),
-    ("F1", "<f1>"), ("F12", "<f12>"), ("PAUSE", "<pause>"),
+    ("F1", "<f1>"), ("F12", "<f12>"), ("F13", "<f13>"), ("F20", "<f20>"), ("PAUSE", "<pause>"),
     ("PRINTSCREEN", "<print_screen>"), ("SCROLLLOCK", "<scroll_lock>"), ("NUMLOCK", "<num_lock>")])
 def test_nomes_do_studio_viram_as_teclas_certas_do_pynput(monkeypatch, nome, esperado):
     backend, falso = _backend(monkeypatch)
@@ -48,7 +51,7 @@ def test_nomes_do_studio_viram_as_teclas_certas_do_pynput(monkeypatch, nome, esp
     assert falso.log == [("press", esperado), ("release", esperado)]
 
 
-def test_toda_tecla_que_o_editor_e_o_gravador_usam_e_aceita_exceto_o_teclado_numerico(monkeypatch):
+def test_toda_tecla_que_o_editor_e_o_gravador_usam_e_aceita_exceto_o_teclado_numerico_e_f21_a_f24(monkeypatch):
     # Generalização do achado 1.10 para o fallback: nome oferecido ao usuário e recusado na execução = macro quebrada.
     backend, _ = _backend(monkeypatch)
     recusadas = []
@@ -58,9 +61,20 @@ def test_toda_tecla_que_o_editor_e_o_gravador_usam_e_aceita_exceto_o_teclado_num
             backend.key_up(nome)
         except ValueError:
             recusadas.append(nome)
-    assert sorted(recusadas) == sorted(TECLADO_NUMERICO), (
-        "só o teclado numérico fica sem tradução fora do Windows (lá usa keybd_event); sobrou: "
-        f"{sorted(set(recusadas) - set(TECLADO_NUMERICO))}")
+    esperadas = TECLADO_NUMERICO + F21_A_F24
+    assert sorted(recusadas) == sorted(esperadas), (
+        "só o teclado numérico (lá usa keybd_event) e F21 a F24 (o pynput só garante F1 a F20) ficam sem tradução fora do Windows; "
+        f"sobrou: {sorted(set(recusadas) - set(esperadas))}; faltou recusar: {sorted(set(esperadas) - set(recusadas))}")
+
+
+@pytest.mark.parametrize("nome", F21_A_F24)
+def test_f21_a_f24_no_fallback_sao_recusadas_e_nunca_viram_outra_tecla(monkeypatch, nome):
+    backend, falso = _backend(monkeypatch)
+    with pytest.raises(ValueError, match="não suportada pelo backend pynput"):
+        backend.key_down(nome)
+    with pytest.raises(ValueError):
+        backend.key_up(nome)
+    assert falso.log == []
 
 
 @pytest.mark.parametrize("nome", TECLADO_NUMERICO)

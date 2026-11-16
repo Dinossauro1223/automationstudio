@@ -561,3 +561,119 @@ def test_o_construtor_nao_altera_nem_guarda_o_dicionario_recebido():
     estado.sincronizar({"A": "F6", "B": "F7"}, CONTROLES)
     assert recebido == {"migrated": True, "prefs": {"A": SEMPRE}}
     assert JA_MIGRADO == {"migrated": True, "prefs": {}}
+
+
+# ================================================================================================ 25.9 (T1): teclas reservadas
+# Regras: tests/unit/test_atalhos_reservados.py. Aqui, como a ativação as usa: recusa ao ESCOLHER uma tecla que atrapalha, aviso
+# ao escolher uma que pode atrapalhar, sugestão da próxima combinação livre e o aviso permanente só para tecla que NÃO dispara.
+TRES = "CTRL+SHIFT+ALT+"
+USADAS = [TRES + "1"]
+
+
+def test_uma_tecla_reservada_e_recusada_com_o_motivo_a_tecla_que_fica_e_uma_sugestao():
+    assert atv.recusa_de_reservada("CTRL+T", "Outro", "F6", USADAS) == (
+        "A tecla “CTRL+T” não foi aceita para “Outro” porque abre uma nova aba do navegador. "
+        "A tecla de “Outro” continua “F6”. Sugestão: CTRL+SHIFT+ALT+2.")
+    assert atv.recusa_de_reservada("A", "Outro", "F6", []) == (
+        "A tecla “A” não foi aceita para “Outro” porque é uma tecla de digitar ou navegar: a automação começaria sempre que ela "
+        "fosse usada. A tecla de “Outro” continua “F6”. Sugestão: CTRL+SHIFT+ALT+1.")
+    assert atv.recusa_de_reservada("=", "Outro", "F6", []) == (
+        "A tecla “=” não foi aceita para “Outro” porque usa “=”, que o programa ainda não reconhece como tecla de atalho "
+        "(símbolos e pontuação ainda não funcionam). A tecla de “Outro” continua “F6”. Sugestão: CTRL+SHIFT+ALT+1.")
+    assert atv.recusa_de_reservada("CRTL+F13", "Outro", "F6", []).startswith(
+        "A tecla “CRTL+F13” não foi aceita para “Outro” porque usa “CRTL”, que o programa não reconhece como tecla de atalho "
+        "(confira a escrita).")
+
+
+def test_a_recusa_nao_fala_da_tecla_que_fica_quando_o_mapa_nao_tem_tecla():
+    assert atv.recusa_de_reservada("ALT+F4", "Novo", "", []) == (
+        "A tecla “ALT+F4” não foi aceita para “Novo” porque fecha a janela em primeiro plano. Sugestão: CTRL+SHIFT+ALT+1.")
+    assert atv.recusa_de_reservada("ALT+F4", "Novo", None, []).endswith("Sugestão: CTRL+SHIFT+ALT+1.")
+
+
+def test_a_recusa_sem_nenhuma_combinacao_livre_nao_sugere():
+    todas = [TRES + t for t in list("1234567890") + [f"F{n}" for n in range(1, 13)] + list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")]
+    assert atv.recusa_de_reservada("ALT+F4", "Novo", "F6", todas) == (
+        "A tecla “ALT+F4” não foi aceita para “Novo” porque fecha a janela em primeiro plano. A tecla de “Novo” continua “F6”.")
+
+
+@pytest.mark.parametrize("tecla", [TRES + "1", "F13", "CTRL+F24", "MOUSE_X1", "MOUSE_X2", "CTRL+SHIFT+K", "PAUSE", "CTRL+MOUSE_X1"])
+def test_tecla_livre_ou_so_com_aviso_nao_e_recusada(tecla):
+    assert atv.recusa_de_reservada(tecla, "Outro", "F6", []) == ""
+
+
+@pytest.mark.parametrize("atual,nova", [("CTRL+T", "ctrl+t"), ("F6", "f6"), ("=", " = "), ("A", "a"), ("ALT+F4", "F4+alt"),
+                                        ("MOUSE_LEFT", "botaoesquerdo")])
+def test_manter_a_tecla_que_o_mapa_ja_tem_nunca_e_recusado_mesmo_reservada(atual, nova):
+    # D12: o que já existe continua funcionando. A regra vale ao TROCAR de tecla, não ao salvar as configurações como estão.
+    assert atv.recusa_de_reservada(nova, "Antigo", atual, []) == ""
+
+
+def test_trocar_de_uma_reservada_para_outra_reservada_e_recusado():
+    assert atv.recusa_de_reservada("CTRL+W", "Antigo", "CTRL+T", []) != ""
+
+
+def test_o_aviso_ao_escolher_uma_tecla_que_pode_atrapalhar():
+    assert atv.aviso_de_reservada("MOUSE_X1", "F13", []) == (
+        "Atenção: a tecla “MOUSE_X1” usa um botão lateral do mouse sozinho, que os navegadores usam como Voltar e Avançar.")
+    assert atv.aviso_de_reservada("ctrl+shift+k", "", []).startswith("Atenção: a tecla “ctrl+shift+k” usa dois modificadores")
+    assert atv.aviso_de_reservada("PAUSE", None, []).startswith("Atenção: a tecla “PAUSE” ")
+
+
+@pytest.mark.parametrize("tecla,atual", [(TRES + "1", "F13"), ("F13", "F6"), ("CTRL+T", "F6"), ("=", "F6"), ("MOUSE_X1", "mouse_x1"),
+                                         ("MOUSE_X1", " MOUSE_X1 "), ("", "F6"), ("+", "F6"), (None, "F6")])
+def test_sem_aviso_quando_a_tecla_e_livre_recusada_invalida_ou_nao_mudou(tecla, atual):
+    assert atv.aviso_de_reservada(tecla, atual, []) == ""
+
+
+def test_o_alerta_permanente_e_so_para_a_tecla_que_nunca_dispara():
+    # "=" é o padrão de todo mapa antigo e nunca chegou ao gerente de atalhos (A1): isso é defeito, não gosto. Já F6, Ctrl+T e os
+    # botões laterais funcionam; o dono pode tê-los escolhido de propósito, e dizer a ele a cada abertura seria só barulho.
+    assert atv.alerta_de_tecla("=", USADAS) == (
+        "Atenção: a tecla “=” usa “=”, que o programa ainda não reconhece como tecla de atalho "
+        "(símbolos e pontuação ainda não funcionam). Sugestão: CTRL+SHIFT+ALT+2.")
+    for tecla in ("F6", "CTRL+T", "A", "MOUSE_X1", "MOUSE_LEFT", "CTRL+SHIFT+K", TRES + "1", "F13", "", "+", None, 5):
+        assert atv.alerta_de_tecla(tecla, USADAS) == "", tecla
+
+
+def test_o_alerta_sem_combinacao_livre_so_avisa():
+    todas = [TRES + t for t in list("1234567890") + [f"F{n}" for n in range(1, 13)] + list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")]
+    assert atv.alerta_de_tecla("=", todas) == (
+        "Atenção: a tecla “=” usa “=”, que o programa ainda não reconhece como tecla de atalho (símbolos e pontuação ainda não funcionam).")
+
+
+def test_as_teclas_em_uso_sao_as_de_todos_os_mapas_e_as_de_controle():
+    mapas = {"A": TRES + "1", "B": "ctrl+shift+alt+2", "C": "", "D": "+", "E": None, "F": "=", "G": 7}
+    assert sorted(atv.usadas_de(mapas, CONTROLES), key=str) == sorted(
+        [TRES + "1", "ctrl+shift+alt+2", "=", "F9", "F10", "F12", "F8", "F11"], key=str)
+    assert atv.usadas_de({}, None) == []
+
+
+def test_a_sugestao_do_estado_considera_todos_os_mapas_inclusive_os_desativados_e_os_controles():
+    mapas = {"A": TRES + "1", "B": "ctrl+shift+alt+2", "C": "F6"}
+    estado = AtivacaoMapas({"migrated": True, "prefs": {"A": SEMPRE, "B": DESAT, "C": SEMPRE}})
+    assert estado.sugerir_tecla(mapas, CONTROLES) == TRES + "3", "a tecla de um mapa desativado volta ao ser ativado: não se oferece"
+    assert AtivacaoMapas().sugerir_tecla({}, CONTROLES) == TRES + "1"
+    assert AtivacaoMapas().sugerir_tecla(REAIS, CONTROLES) == TRES + "1", "os três mapas reais não usam nenhuma combinação sugerida"
+    assert AtivacaoMapas().sugerir_tecla({"A": TRES + "1"}, {"emergency": TRES + "2"}) == TRES + "3"
+
+
+def test_o_mapa_ativo_com_tecla_que_nao_dispara_e_descrito_com_o_alerta_e_o_resto_fica_como_era():
+    mapas = {"Exemplo": "=", "Normal": TRES + "1", "Antiga": "F6"}
+    estado = _migrada(mapas)
+    d = {n: estado.descrever(n, mapas, CONTROLES) for n in mapas}
+    assert d["Exemplo"].alerta == (
+        "Atenção: a tecla “=” usa “=”, que o programa ainda não reconhece como tecla de atalho "
+        "(símbolos e pontuação ainda não funcionam). Sugestão: CTRL+SHIFT+ALT+2.")
+    assert d["Exemplo"].resumo == d["Exemplo"].alerta + " O botão ▶ Executar continua funcionando."
+    assert d["Exemplo"].situacao == "Sempre ativo ao iniciar" and d["Exemplo"].funcionando is True, "continua registrada"
+    assert d["Normal"].alerta == "" and d["Normal"].resumo == f"A tecla “{TRES}1” inicia e para esta automação."
+    assert d["Antiga"].alerta == "" and d["Antiga"].resumo == "A tecla “F6” inicia e para esta automação."
+
+
+def test_o_alerta_so_aparece_enquanto_a_tecla_esta_valendo():
+    mapas = {"A": "=", "B": "=", "C": "="}
+    estado = AtivacaoMapas({"migrated": True, "prefs": {"A": SEMPRE, "B": SEMPRE, "C": DESAT}})
+    assert estado.descrever("A", mapas, CONTROLES).alerta != ""
+    assert estado.descrever("B", mapas, CONTROLES).alerta == "", "perdeu a tecla para A: a situação de conflito já diz o que importa"
+    assert estado.descrever("C", mapas, CONTROLES).alerta == "", "desativado: a tecla não inicia nada, não há o que alertar"

@@ -18,12 +18,19 @@ Regras de tecla:
       para quem chega depois (mesmo que o nome de quem chega venha antes na ordem alfabética);
     * dados antigos com a mesma tecla em dois mapas ativos: o primeiro pelo nome, como até a 25.6, fica com a tecla; o outro
       continua ativo, sem a tecla, e a situação aparece na tela.
+
+Teclas reservadas (25.9, `atalhos_reservados.py`): ao ESCOLHER a tecla de uma automação, em qualquer estado, uma tecla que
+atrapalharia (atalho do Windows ou do navegador, letra, número, botão principal do mouse) é recusada com o motivo e uma sugestão,
+e uma que pode atrapalhar (botão lateral do mouse sozinho, dois modificadores) vale com um aviso. Manter a tecla que o mapa já
+tinha nunca é recusado (o que já existe continua funcionando). Só a tecla que NUNCA dispara, como o "=" de todo mapa antigo (o
+monitor não entrega símbolos), ganha um alerta permanente na descrição do mapa. Nada disso muda o formato do mapa.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
+from .atalhos_reservados import NIVEL_AVISO, NIVEL_RECUSADA, avaliar, sugerir
 from .core import parse_combo
 
 ESTADO_SESSAO = "sessao"
@@ -78,6 +85,18 @@ def tecla_valida(tecla: Any) -> bool:
     return True
 
 
+def usadas_de(mapas: Mapping[str, Any], controles: Mapping[str, Any] | None = None) -> list[str]:
+    """As teclas em uso, para a sugestão: a de TODOS os mapas (ativos ou não: a de um mapa desativado volta quando ele é
+    ativado, então não se oferece) e as dos atalhos de controle. O que não é uma tecla (vazio, só "+", não-texto) fica de fora."""
+    valores = list(mapas.values()) + list((controles or {}).values())
+    return [valor.strip() for valor in valores if tecla_valida(valor)]
+
+
+def _mesma_tecla(a: Any, b: Any) -> bool:
+    """As duas são teclas e formam a mesma combinação, escritas de qualquer jeito (caixa, ordem, espaços, apelidos do mouse)."""
+    return tecla_valida(a) and tecla_valida(b) and parse_combo(a.strip()) == parse_combo(b.strip())
+
+
 # ------------------------------------------------------------------------------------------------ mensagens
 def _mensagem_de_conflito(tecla: str, perdedor: str, perdedor_e_mapa: bool, vencedor: str, vencedor_e_mapa: bool) -> str:
     if perdedor_e_mapa and vencedor_e_mapa:
@@ -115,7 +134,41 @@ def recusa_de_tecla_invalida(tecla: Any, nome: str, atual: Any) -> str:
     """O que mostrar quando a tecla pedida não existe (vazia, só "+")."""
     texto = tecla.strip() if isinstance(tecla, str) else ""
     primeira = f"A tecla “{texto}” não é válida." if texto else "Nenhuma tecla foi digitada."
-    return f"{primeira} Digite uma tecla ou uma combinação, como F6 ou CTRL+F6.{_continua(nome, atual)}"
+    return f"{primeira} Digite uma tecla ou uma combinação, como CTRL+SHIFT+ALT+1 ou F13.{_continua(nome, atual)}"
+
+
+def _sugestao_de(avaliacao) -> str:
+    return f" Sugestão: {avaliacao.sugestao}." if avaliacao.sugestao else ""
+
+
+def recusa_de_reservada(tecla: Any, nome: str, atual: Any, usadas=()) -> str:
+    """O que mostrar quando a tecla pedida atrapalharia (atalho do Windows ou do navegador, tecla de digitar, botão principal
+    do mouse, símbolo que o programa não reconhece): o motivo, a tecla que fica e a próxima combinação livre. "" quando a tecla
+    serve, quando só merece aviso ou quando é a que o mapa JÁ TEM: manter o que já funciona nunca é recusado (D12)."""
+    avaliacao = avaliar(tecla, usadas)
+    if avaliacao.nivel != NIVEL_RECUSADA or _mesma_tecla(tecla, atual):
+        return ""
+    return (f"A tecla “{tecla.strip()}” não foi aceita para “{nome}” porque {avaliacao.motivo}."
+            f"{_continua(nome, atual)}{_sugestao_de(avaliacao)}")
+
+
+def aviso_de_reservada(tecla: Any, atual: Any, usadas=()) -> str:
+    """O aviso, que não recusa, ao escolher uma tecla que PODE atrapalhar (botão lateral do mouse sozinho, dois modificadores,
+    Pause). "" para tecla livre, recusada, inválida ou a que o mapa já tinha."""
+    avaliacao = avaliar(tecla, usadas)
+    if avaliacao.nivel != NIVEL_AVISO or _mesma_tecla(tecla, atual):
+        return ""
+    return f"Atenção: a tecla “{tecla.strip()}” {avaliacao.motivo}."
+
+
+def alerta_de_tecla(tecla: Any, usadas=()) -> str:
+    """O alerta PERMANENTE de um mapa, só para a tecla que nunca dispara (a que o monitor não entrega, como o "=" de todo mapa
+    antigo): é defeito, não gosto. As demais (F6, Ctrl+T, botão lateral) funcionam, o dono pode as ter escolhido de propósito, e
+    avisar a cada abertura seria só barulho."""
+    avaliacao = avaliar(tecla, usadas)
+    if avaliacao.regra != "desconhecida":
+        return ""
+    return f"Atenção: a tecla “{tecla.strip()}” {avaliacao.motivo}.{_sugestao_de(avaliacao)}"
 
 
 # ------------------------------------------------------------------------------------------------ o plano
@@ -251,6 +304,7 @@ class Descricao:
     invalido: str                # texto do problema, se a tecla não é válida
     situacao: str                # linha curta: rótulo + o que impede a tecla de funcionar
     resumo: str                  # frase completa, para a faixa e a dica
+    alerta: str = ""             # a tecla está registrada mas nunca dispara (o monitor não a entrega): o que dizer e o que fazer
 
 
 class AtivacaoMapas:
@@ -337,6 +391,11 @@ class AtivacaoMapas:
             self._sessao.discard(nome)
         return Resultado(True, aviso)
 
+    def sugerir_tecla(self, mapas: Mapping[str, Any], controles: Mapping[str, Any] | None = None) -> str:
+        """A tecla a oferecer a uma automação nova: a primeira combinação livre da série Ctrl+Shift+Alt+1, 2, 3 …, ou "" se as
+        48 da série já estão em uso. As teclas de TODOS os mapas contam, inclusive os desativados."""
+        return sugerir(usadas_de(mapas, controles))
+
     def verificar_tecla(self, nome: str, tecla: Any, mapas: Mapping[str, Any],
                         controles: Mapping[str, Any] | None = None) -> Conflito | None:
         """O conflito que `tecla` teria se `nome` a usasse ATIVO, contra os OUTROS mapas ativos e os atalhos de controle; None
@@ -371,7 +430,12 @@ class AtivacaoMapas:
                 resumo = "Sem tecla definida. O botão ▶ Executar continua funcionando."
             return Descricao(nome, estado, rotulo, tecla, False, None, "", rotulo, resumo)
         if plano.registro_do_mapa(nome) is not None:
-            return Descricao(nome, estado, rotulo, tecla, True, None, "", rotulo, f"A tecla “{tecla}” inicia e para esta automação.")
+            alerta = alerta_de_tecla(tecla, usadas_de(mapas, controles))
+            if alerta:  # registrada, mas o monitor nunca a entrega: continua como estava, com o que fazer
+                resumo = f"{alerta} O botão ▶ Executar continua funcionando."
+            else:
+                resumo = f"A tecla “{tecla}” inicia e para esta automação."
+            return Descricao(nome, estado, rotulo, tecla, True, None, "", rotulo, resumo, alerta)
         conflito = plano.conflito_do_mapa(nome)
         if conflito is not None:
             resumo = f"{conflito.mensagem} Esta automação continua ativa, mas sem a tecla enquanto o conflito durar."

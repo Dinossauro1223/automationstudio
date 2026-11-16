@@ -51,13 +51,24 @@ def test_a_lista_recebe_o_estado_e_o_conflito_em_cada_item(gui, tmp_path):
 
 
 def test_a_dica_de_cada_item_diz_a_situacao_e_mantem_a_frase_de_abrir(gui, tmp_path):
-    janela = abrir(tmp_path, {"A": "=", "B": "F7"})
+    janela = abrir(tmp_path, {"A": "CTRL+SHIFT+ALT+1", "B": "F7"})
     janela.ativacao.definir_estado("B", DESAT)
     lista = _com_lista(janela, ["A", "B"])
     janela.ativacao.decorar_lista(DICA)
-    assert lista.item(0).toolTip() == DICA + "\n\nSempre ativo ao iniciar\nA tecla “=” inicia e para esta automação."
+    assert lista.item(0).toolTip() == DICA + "\n\nSempre ativo ao iniciar\nA tecla “CTRL+SHIFT+ALT+1” inicia e para esta automação."
     assert lista.item(1).toolTip() == (DICA + "\n\nDesativado\nA tecla “F7” não inicia esta automação. "
                                        "O botão ▶ Executar continua funcionando.")
+
+
+def test_a_dica_do_item_com_tecla_que_nao_dispara_traz_o_alerta_e_a_sugestao(gui, tmp_path):           # 25.9 (T1)
+    janela = abrir(tmp_path, {"A": "=", "B": "F6"})
+    lista = _com_lista(janela, ["A", "B"])
+    janela.ativacao.decorar_lista(DICA)
+    assert lista.item(0).toolTip() == DICA + (
+        "\n\nSempre ativo ao iniciar\nAtenção: a tecla “=” usa “=”, que o programa ainda não reconhece como tecla de atalho "
+        "(símbolos e pontuação ainda não funcionam). Sugestão: CTRL+SHIFT+ALT+1. O botão ▶ Executar continua funcionando.")
+    assert lista.item(1).toolTip() == DICA + "\n\nSempre ativo ao iniciar\nA tecla “F6” inicia e para esta automação.", \
+        "uma tecla antiga que funciona (mesmo reservada) não recebe alerta"
 
 
 def test_os_papeis_de_dados_da_lista_sao_os_combinados_com_a_frente_visual(gui):
@@ -85,6 +96,16 @@ def test_a_faixa_mostra_o_estado_a_tecla_e_a_frase_da_automacao(gui, tmp_path):
     assert painel.combo.currentData() == SEMPRE
     assert painel.situacao.text() == "A tecla “MOUSE_X2” inicia e para esta automação."
     assert not painel.isHidden()
+
+
+def test_a_faixa_de_uma_automacao_com_tecla_que_nao_dispara_mostra_o_alerta(gui, tmp_path):          # 25.9 (T1)
+    # "=" é a tecla da automação de demonstração dos dados antigos: nunca chegou ao gerente de atalhos (o monitor descarta símbolos).
+    painel = PainelAtivacao(abrir(tmp_path).ativacao)
+    painel.mostrar("Exemplo — Primeira automação")
+    assert painel.situacao.text() == (
+        "Atenção: a tecla “=” usa “=”, que o programa ainda não reconhece como tecla de atalho (símbolos e pontuação ainda não "
+        "funcionam). Sugestão: CTRL+SHIFT+ALT+1. O botão ▶ Executar continua funcionando.")
+    assert painel.combo.currentData() == SEMPRE, "o estado não muda: só a frase diz o que a tecla não faz"
 
 
 def test_a_faixa_se_esconde_sem_automacao_e_volta_com_uma(gui, tmp_path):

@@ -38,7 +38,9 @@ GRUPOS = {
     "project": ("project",),
     "input_system": ("input_system",),
     "vision": ("vision",),
-    "ativacao": ("ativacao",),  # 25.8: a lógica pura da ativação por mapa; a parte com widgets (ativacao_ui) é da interface
+    # 25.8: a lógica pura da ativação por mapa; 25.9: e as regras das teclas de automação (atalhos_reservados). A parte com
+    # widgets (ativacao_ui) é da interface.
+    "ativacao": ("ativacao", "atalhos_reservados"),
     "controle": ("controle_ui",),  # pausar/continuar pelas teclas: sem widgets (não importa o Qt), coberto sem a janela
     "interface": ("app", "ativacao_ui", "command_editor", "main_window", "overlays", "timeline", "tutorial"),
 }

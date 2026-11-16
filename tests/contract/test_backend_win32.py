@@ -35,7 +35,8 @@ def test_com_user32_injetado_funciona_em_qualquer_sistema_e_se_identifica():
 # ----------------------------------------------------------------------------------------- teclado
 @pytest.mark.parametrize("nome,codigo,estendida", [
     ("A", 0x41, False), ("a", 0x41, False), ("Z", 0x5A, False), ("0", 0x30, False), ("9", 0x39, False),
-    ("F1", 0x70, False), ("F12", 0x7B, False), ("NUM0", 0x60, False), ("NUM9", 0x69, False),
+    ("F1", 0x70, False), ("F12", 0x7B, False), ("F13", 0x7C, False), ("F14", 0x7D, False), ("F16", 0x7F, False),
+    ("F20", 0x83, False), ("F21", 0x84, False), ("F24", 0x87, False), ("f13", 0x7C, False), ("NUM0", 0x60, False), ("NUM9", 0x69, False),
     ("NUM*", 0x6A, False), ("NUM+", 0x6B, False), ("NUM-", 0x6D, False), ("NUM.", 0x6E, False),
     ("ENTER", 0x0D, False), ("enter", 0x0D, False), ("TAB", 0x09, False), ("BACKSPACE", 0x08, False), ("ESC", 0x1B, False),
     ("SPACE", 0x20, False), ("SHIFT", 0x10, False), ("CTRL", 0x11, False), ("ALT", 0x12, False), ("CAPSLOCK", 0x14, False),

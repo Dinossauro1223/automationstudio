@@ -914,7 +914,8 @@ class MainWindow(QMainWindow):
         """Cria uma automação demonstrativa completa apenas no primeiro onboarding."""
         if self.project_manager.maps:
             return
-        demo=AutomationMap(name="Exemplo — Primeira automação", hotkey="=", repeat_count=1)
+        # 25.9: a primeira automação nasce na combinação padrão (Ctrl+Shift+Alt+1), que nenhum atalho do Windows ou do navegador usa.
+        demo=AutomationMap(name="Exemplo — Primeira automação", hotkey=self.ativacao.sugerir_tecla() or "=", repeat_count=1)
         message=("Já pensou nas possibilidades? Esse programa pode te ajudar a deixar seu "
                  "fluxo de trabalho mais confortável, te dando mais tempo para o que realmente "
                  "importa. A sua criatividade, em ação!")
@@ -1128,8 +1129,8 @@ class MainWindow(QMainWindow):
     def _finish_tutorial_demo(self) -> None:
         demo=self._current_map
         if demo is None: return
-        hotkey,ok=QInputDialog.getText(self,'Escolha a tecla da demonstração','Escolha uma tecla ou combinação para iniciar/parar esta automação.\nEx.: F6, = ou CTRL+F6.',text=demo.hotkey or '=')
-        if ok and hotkey.strip(): demo.hotkey=hotkey.strip().upper()
+        hotkey,ok=QInputDialog.getText(self,'Escolha a tecla da demonstração','Escolha uma tecla ou combinação para iniciar/parar esta automação.\nEx.: CTRL+SHIFT+ALT+1 ou F13.',text=demo.hotkey or self.ativacao.sugerir_tecla())
+        if ok and hotkey.strip(): self.ativacao.mudar_tecla(demo,hotkey.strip().upper())  # 25.9: uma tecla que atrapalha é recusada e a da demonstração fica
         self.project_manager.save_map(demo); self._refresh_map_config_labels(); self._register_all_hotkeys(); self.pages.setCurrentIndex(2)
         QTimer.singleShot(250,lambda:self._run_map_via_hotkey(demo))
 
@@ -1312,7 +1313,9 @@ class MainWindow(QMainWindow):
         if name in self.project_manager.maps:
             QMessageBox.warning(self, "Nome duplicado", "Já existe um mapa com esse nome.")
             return
-        new_map = AutomationMap(name=name.strip(), hotkey="=", repeat_count=-1)
+        # 25.9: a tecla de uma automação nova é a primeira combinação livre de Ctrl+Shift+Alt+1, 2, 3 …; só se as 48 da série
+        # estiverem em uso sobra o "=" que o modelo sempre usou (o programa então avisa que ele não dispara).
+        new_map = AutomationMap(name=name.strip(), hotkey=self.ativacao.sugerir_tecla() or "=", repeat_count=-1)
         self.project_manager.save_map(new_map)
         self._reload_map_list()
         self._select_map_by_name(new_map.name)
@@ -1467,12 +1470,12 @@ class MainWindow(QMainWindow):
         if choice == trigger_options[0]:
             hotkey, ok = QInputDialog.getText(
                 self, "Tecla para iniciar/parar",
-                "Digite uma tecla ou combinação. Exemplo: =, F6 ou CTRL+F6.",
-                text=m.hotkey if m.hotkey and not m.hotkey.upper().startswith("MOUSE_") else "="
+                "Digite uma tecla ou combinação. Exemplo: CTRL+SHIFT+ALT+1 ou F13.",
+                text=m.hotkey if m.hotkey and not m.hotkey.upper().startswith("MOUSE_") else self.ativacao.sugerir_tecla()
             )
             if not ok:
                 return
-            new_hotkey = hotkey.strip() or "="
+            new_hotkey = hotkey.strip()  # 25.9: vazio não vira mais "=": o programa diz que nenhuma tecla foi digitada e mantém a atual
         else:
             mouse_map = {
                 trigger_options[1]:"MOUSE_LEFT", trigger_options[2]:"MOUSE_RIGHT",

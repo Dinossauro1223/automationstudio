@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QMessageBox, QVBoxLayout, QWidget
 
-from .ativacao import (AJUDAS, ESTADO_DESATIVADO, ESTADOS, ROTULOS, AtivacaoMapas, Descricao, Plano, recusa_de_tecla,
-                       recusa_de_tecla_invalida, registrar_plano, tecla_valida)
+from .ativacao import (AJUDAS, ESTADO_DESATIVADO, ESTADOS, ROTULOS, AtivacaoMapas, Descricao, Plano, aviso_de_reservada,
+                       recusa_de_reservada, recusa_de_tecla, recusa_de_tecla_invalida, registrar_plano, tecla_valida, usadas_de)
 from .core import _append_runtime_log
 
 PAPEL_ESTADO = 257    # Qt.UserRole + 1: "sessao", "sempre" ou "desativado"
@@ -85,31 +85,43 @@ class ControladorAtivacao:
             aviso = " (em conflito)"
         elif descricao.invalido:
             aviso = " (inválida)"
+        elif descricao.alerta:  # registrada, mas o monitor nunca entrega essa tecla: o motivo e a sugestão estão na faixa
+            aviso = " (com aviso)"
         else:
             aviso = ""
         return f"Tecla para iniciar/parar: {mapa.hotkey or '—'}{aviso}"
 
+    def sugerir_tecla(self) -> str:
+        """A tecla a oferecer a uma automação nova: a primeira combinação livre de Ctrl+Shift+Alt+1, 2, 3 … ("" se acabaram)."""
+        return self._estado().sugerir_tecla(self.mapas(), self.controles())
+
     def validar_tecla(self, nome: str, tecla: str) -> str:
-        """"" se `tecla` pode ser a tecla de `nome` agora; senão o texto da recusa (a tecla anterior é mantida). Uma tecla
-        que não existe é recusada em qualquer estado; uma tecla ocupada só vale a recusa se o mapa está ativo (mapa
-        desativado aceita qualquer tecla: o conflito é conferido quando ele for ativado)."""
+        """"" se `tecla` pode ser a tecla de `nome` agora; senão o texto da recusa (a tecla anterior é mantida). Na ordem:
+        uma tecla que não existe é recusada em qualquer estado; uma tecla ocupada só vale a recusa se o mapa está ativo (mapa
+        desativado aceita a ocupada: o conflito é conferido quando ele for ativado); uma tecla reservada (atalho do Windows
+        ou do navegador, tecla de digitar, botão principal do mouse) é recusada em qualquer estado, exceto a que o mapa já tem."""
         atual = self.mapas().get(nome, "")
         if not tecla_valida(tecla):
             return recusa_de_tecla_invalida(tecla, nome, atual)
         logica = self._estado()
-        if not logica.esta_ativo(nome):
-            return ""
-        conflito = logica.verificar_tecla(nome, tecla, self.mapas(), self.controles())
-        return recusa_de_tecla(conflito, atual) if conflito is not None else ""
+        if logica.esta_ativo(nome):
+            conflito = logica.verificar_tecla(nome, tecla, self.mapas(), self.controles())
+            if conflito is not None:
+                return recusa_de_tecla(conflito, atual)
+        return recusa_de_reservada(tecla, nome, atual, usadas_de(self.mapas(), self.controles()))
 
     def mudar_tecla(self, mapa, tecla: str) -> bool:
         """Dá `tecla` ao `mapa` se ela serve (`validar_tecla`); senão avisa o motivo e o mapa fica com a que tinha. Devolve
-        se a tecla mudou. Só muda o objeto do mapa: quem chama grava e refaz os atalhos, como já fazia."""
+        se a tecla mudou. Uma tecla que serve mas pode atrapalhar (botão lateral do mouse sozinho, dois modificadores) vale, com o
+        cuidado na barra de status. Só muda o objeto do mapa: quem chama grava e refaz os atalhos, como já fazia."""
         motivo = self.validar_tecla(mapa.name, tecla)
         if motivo:
             self._mostrar("Tecla não alterada", motivo)
             return False
+        aviso = aviso_de_reservada(tecla, mapa.hotkey, usadas_de(self.mapas(), self.controles()))
         mapa.hotkey = tecla
+        if aviso:
+            self.janela.status_bar.showMessage(aviso, 12000)
         return True
 
     # ---- ações ----------------------------------------------------------------------------------------------------
