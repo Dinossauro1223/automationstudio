@@ -1100,6 +1100,7 @@ class ExecutionEngine:
 
         if self.state.state in (State.RUNNING, State.PAUSED):
             self.stop(wait=True)
+        self._wait_previous_thread()
 
         with self._lock:
             self._current_map = automation_map
@@ -1111,6 +1112,23 @@ class ExecutionEngine:
         self.state.transition_to(State.RUNNING)
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
+
+    def _wait_previous_thread(self, timeout: float = 1.0) -> None:
+        """Espera a thread da execução anterior sair antes de começar outra (execução exclusiva, item 9).
+
+        `stop()` sem espera (o botão Parar) devolve o estado a IDLE com a thread antiga ainda viva, e `run()` limpa o
+        pedido de parada: se a thread ainda não o tivesse visto, ela seguiria tocando o mapa antigo ao lado do novo (com
+        repetição infinita, para sempre) e soltaria, ao sair, as teclas da execução nova, que dividem o mesmo registro de
+        teclas pressionadas. A thread que já recebeu o pedido sai em milissegundos, então a espera quase nunca é sentida.
+        O prazo evita travar a janela se ela estiver presa no backend; nesse caso a execução nova começa mesmo assim.
+        `run()` chamado pela própria thread do motor (um observador de fim, o encadeamento) não espera por si mesmo:
+        `join` nela levantaria RuntimeError."""
+        previous = self._thread
+        if previous is None or previous is threading.current_thread() or not previous.is_alive():
+            return
+        previous.join(timeout=timeout)
+        if previous.is_alive():
+            _append_runtime_log(f"ENGINE_RUN a thread da execução anterior não saiu em {timeout:g}s; a nova começa mesmo assim")
 
     def pause(self) -> bool:
         """Pausa a execução. Devolve True se pausou; False se não havia execução em andamento (parado, gravando, parando ou
@@ -1146,7 +1164,7 @@ class ExecutionEngine:
         if self.state.state in (State.IDLE,):
             return
         if self.state.state in (State.RUNNING, State.PAUSED):
-            self.state.transition_to(State.STOPPING)
+            self._transition_if_possible(State.STOPPING)
         self._stop_requested.set()
         self._pause_event.set()  # libera thread caso esteja pausada, para ela poder checar o stop
 
@@ -1155,7 +1173,23 @@ class ExecutionEngine:
 
         self._release_all()
         if self.state.state == State.STOPPING:
-            self.state.transition_to(State.IDLE)
+            self._transition_if_possible(State.IDLE)
+
+    def _transition_if_possible(self, target: State) -> bool:
+        """Muda o estado aceitando perder uma corrida: devolve False, sem levantar, se o estado já mudou para onde `target`
+        não é mais permitido.
+
+        `stop()` (thread da janela ou do atalho), `_finish()` e os tratadores de erro de `_run_loop` (thread do motor)
+        decidem pelo estado que leram um instante antes. Se a outra ponta o mudou nesse intervalo (a execução terminou
+        sozinha, ou deu erro, na hora em que o Parar chegou, ou duas paradas ao mesmo tempo), a transição deixou de existir
+        e o que ela queria (parado, ocioso) já vale. Sem isto, `stop()` (e `emergency_stop()`, que promete nunca levantar)
+        levantava `InvalidStateTransition` para quem apertou o Parar, e a thread do motor morria com a exceção, sem avisar
+        o fim nem o erro."""
+        try:
+            self.state.transition_to(target)
+        except core.InvalidStateTransition:
+            return False
+        return True
 
     def emergency_stop(self) -> None:
         """Botão/atalho de emergência (item 11): mesmo comportamento de
@@ -1208,7 +1242,7 @@ class ExecutionEngine:
             if self._stop_requested.is_set():
                 self.state.force_to_idle()
                 return
-            self.state.transition_to(State.ERROR)
+            self._transition_if_possible(State.ERROR)  # uma parada que terminou agora já deixou o estado ocioso
             for cb in list(self.on_error):
                 try:
                     cb(exc)
@@ -1217,7 +1251,7 @@ class ExecutionEngine:
             self.state.force_to_idle()
         except Exception as exc:  # noqa: BLE001 - precisamos capturar qualquer erro de execução
             self._release_all()
-            self.state.transition_to(State.ERROR)
+            self._transition_if_possible(State.ERROR)  # a parada de outra thread pode ter terminado antes: o erro ainda é avisado
             for cb in list(self.on_error):
                 try:
                     cb(exc)
@@ -1457,18 +1491,21 @@ class ExecutionEngine:
     def _finish(self, natural_end: bool) -> None:
         self._release_all()
         if self.state.state in (State.RUNNING, State.PAUSED, State.STOPPING):
+            # Um `stop()` de outra thread pode mudar o estado entre a leitura e a transição (a parada que chega no
+            # instante do fim): quem perde a corrida não levanta, o estado já está onde a transição o levaria.
             if self.state.state != State.STOPPING:
-                self.state.transition_to(State.STOPPING)
-            self.state.transition_to(State.IDLE)
+                self._transition_if_possible(State.STOPPING)
+            self._transition_if_possible(State.IDLE)
         for cb in list(self.on_finished):
             try:
                 cb()
             except Exception:
                 pass
 
-        # O encadeamento só acontece após um término natural. Guardamos o
-        # nome antes de liberar a referência para evitar efeitos de corrida.
-        if natural_end and self._current_map is not None and self._current_map.next_map:
+        # O encadeamento só acontece após um término natural e sem parada pedida: quem apertou o Parar no instante
+        # do fim não quer que o mapa seguinte comece. Guardamos o nome antes de liberar a referência para evitar
+        # efeitos de corrida.
+        if natural_end and not self._stop_requested.is_set() and self._current_map is not None and self._current_map.next_map:
             next_name = self._current_map.next_map
             for cb in list(self.on_chain_requested):
                 try:
