@@ -59,6 +59,7 @@ FUNCOES = [
     Funcao("F23", "Comandos", "Mover um comando para cima", "", [("botao", "▲ Subir", "editor")]),
     Funcao("F24", "Comandos", "Mover um comando para baixo", "", [("botao", "▼ Descer", "editor")]),
     Funcao("F25", "Comandos", "Agrupar comandos e gerenciar grupos", "", [("botao", "● Grupos", "editor")]),
+    Funcao("F50", "Comandos", "Executar a partir de um comando (dali até o fim da lista)", "", [("fonte", "command_editor.py", "Executar a partir daqui")]),
     Funcao("F26", "Comandos", "Outras ações sobre os comandos (menu \"Mais…\")", "", [("botao", "Mais…", "editor")]),
     Funcao("F49", "Comandos", "Desativar ou ativar comandos (o desativado fica na lista, mas não é executado)", "", [("fonte", "command_editor.py", "Desativar selecionados")]),
     # ---- Timeline
