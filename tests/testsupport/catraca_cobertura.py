@@ -34,6 +34,7 @@ TOTAL, OUTROS = "total", "outros"
 # passa batido (e o teste da catraca falha até alguém dizer a que grupo ele pertence).
 GRUPOS = {
     "core": ("core",),
+    "elevacao": ("elevacao", "elevacao_ui"),  # F51: aviso de janela de administrador (regra, leitura do Windows e controlador), coberto sem a janela
     "conditions": ("conditions",),
     "project": ("project",),
     "input_system": ("input_system",),

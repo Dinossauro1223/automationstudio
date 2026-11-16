@@ -25,6 +25,7 @@ Este é o catálogo do que o programa faz. O **ID não muda** (nem quando o bot�
 | F10 | Executar a automação | Barra (em todas as telas): ▶ Executar | — | a definir |
 | F11 | Parar a execução | Barra (em todas as telas): ■ Parar | — | a definir |
 | F12 | Parar tudo (emergência) | Barra (em todas as telas): 🛑 Parar tudo | tecla de parada | a definir |
+| F51 | Ver o aviso de janela de administrador durante a execução | Menu ou diálogo (elevacao.py): Janela de administrador | — | a definir |
 | F13 | Ver o monitor de execução | Barra (em todas as telas): ▣ Monitor de execução | — | a definir |
 | F14 | Voltar ao editor (da timeline ou do monitor) | Botão (tela da timeline): ← Voltar ao editor | — | a definir |
 | F15 | Parar tudo pela tecla, mesmo que um mapa use a mesma tecla | Tecla (teste: test_a_parada_de_emergencia_continua_com_a_tecla_mesmo_que_um_mapa_use_a_mesma) | tecla de parada | a definir |

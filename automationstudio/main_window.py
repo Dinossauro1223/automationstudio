@@ -14,6 +14,7 @@ from .tutorial import *
 from .overlays import *
 from .command_editor import *
 from .timeline import *
+from .elevacao_ui import ControladorElevacao
 
 
 class EngineBridge(QObject):
@@ -242,6 +243,7 @@ class MainWindow(QMainWindow):
         self._restore_main_window_layout()
         self.error_notice = InAppErrorNotice(self)
         self._position_error_notice()
+        self.elevacao = ControladorElevacao(self)  # F51: aviso de janela de administrador (rótulo na barra de status)
         self._build_status_bar()
         self._connect_bridge()
         self._connect_capture_bridge()
@@ -1166,6 +1168,7 @@ class MainWindow(QMainWindow):
         self.bridge.error_occurred.connect(self._on_engine_error)
         self.bridge.finished.connect(self._on_engine_finished)
         self.bridge.chain_requested.connect(self._on_chain_requested)
+        self.elevacao.ligar(self.status_bar, self.bridge)
 
     def _open_execution_monitor(self) -> None:
         self._update_execution_monitor()
