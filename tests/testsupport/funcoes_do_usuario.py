@@ -36,6 +36,8 @@ FUNCOES = [
     Funcao("F09", "Automações", "Escolher como a automação é ativada (sempre ativa, só nesta sessão, desativada)", "", [("painel", "PainelAtivacao", "editor")]),
     # ---- Execução
     Funcao("F10", "Execução", "Executar a automação", "", [("acao", "▶ Executar", "sempre")]),
+    Funcao("F52", "Execução", "Executar a automação passo a passo (um comando por vez, a partir do primeiro ou de um comando escolhido)", "",
+           [("fonte", "command_editor.py", "Executar passo a passo")]),
     Funcao("F11", "Execução", "Parar a execução", "", [("acao", "■ Parar", "sempre")]),
     Funcao("F12", "Execução", "Parar tudo (emergência)", "tecla de parada", [("acao", "🛑 Parar tudo", "sempre")]),
     Funcao("F51", "Execução", "Ver o aviso de janela de administrador durante a execução", "", [("fonte", "elevacao.py", "Janela de administrador")]),

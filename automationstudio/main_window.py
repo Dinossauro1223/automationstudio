@@ -12,6 +12,7 @@ from .ativacao_ui import ControladorAtivacao
 from .controle_ui import ControladorDeExecucao
 from .tutorial import *
 from .overlays import *
+from .passo_a_passo_ui import ControladorPassoAPasso
 from .command_editor import *
 from .timeline import *
 from .elevacao_ui import ControladorElevacao
@@ -247,6 +248,8 @@ class MainWindow(QMainWindow):
         self._build_status_bar()
         self._connect_bridge()
         self._connect_capture_bridge()
+        self.passo = ControladorPassoAPasso(self)  # F52: executar a automação passo a passo (janelinha de controle sem foco)
+        self.passo.ligar(self.command_table, self.bridge)
 
         self._apply_visual_settings()
         self._reload_map_list()

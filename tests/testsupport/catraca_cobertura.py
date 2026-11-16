@@ -38,6 +38,7 @@ GRUPOS = {
     "conditions": ("conditions",),
     "project": ("project",),
     "input_system": ("input_system",),
+    "passo_a_passo": ("passo_a_passo", "passo_a_passo_ui"),  # F52: executar passo a passo (lógica, janelinha e ligação), coberto sem a janela
     "vision": ("vision",),
     # 25.8: a lógica pura da ativação por mapa; 25.9: e as regras das teclas de automação (atalhos_reservados). A parte com
     # widgets (ativacao_ui) é da interface.
