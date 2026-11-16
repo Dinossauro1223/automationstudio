@@ -18,7 +18,7 @@ Princípios: **cada frente trabalha no seu ramo**, ninguém escreve no ramo do o
 |---|---|---|
 | `core.py`: tema (`_COLOR_*`, `_theme_tokens`, `_APP_QSS`, `_build_app_stylesheet`, `_apply_application_palette`) | Visual | Funções não mexe |
 | `core.py`: o resto (modelo, validação, formato dos mapas, `parse_combo`, constantes de execução) | Funções | Visual não mexe; se precisar de algo, pede |
-| `ativacao.py`, `input_system.py`, `project.py`, `conditions.py`, `vision.py` | Funções | Visual não mexe |
+| `ativacao.py`, `controle_ui.py`, `input_system.py`, `project.py`, `conditions.py`, `vision.py` | Funções | Visual não mexe |
 | `ativacao_ui.py`: o controlador | Funções | Visual usa o contrato da seção 4 |
 | `ativacao_ui.py`: o **desenho** da faixa (`PainelAtivacao`) | Visual | pode restilizar e reposicionar; a lógica fica no controlador |
 | `overlays.py`, `timeline.py` (aparência), `command_editor.py` (aparência) | Visual | Funções só toca para lógica, em mudança pequena |
@@ -34,8 +34,9 @@ Princípios: **cada frente trabalha no seu ramo**, ninguém escreve no ramo do o
 2. **O que cada frente já tocou em `main_window.py`** (para ninguém pisar):
    - Visual: botão × da barra de comandos, divisor do workspace, "CRIAR NOVA AUTOMAÇÃO", "▶ Executar" e "🛑 Parar tudo" (propriedades e folhas de estilo, em torno das linhas 452, 538, 557 e 577 da versão deles).
    - Funções: o `import` de `ativacao_ui`; em `__init__`, a criação de `self.ativacao` e a chamada `montar_painel`; e os métodos `_reload_map_list`, `_delete_current_map`, `_refresh_map_config_labels`, `_configure_current_map`, `_register_all_hotkeys` e `_on_hotkey_triggered`.
+   - Funções (pausar/continuar, ramo `funcoes/pausar-continuar-teclas`): o `import` de `controle_ui`; em `__init__`, a criação de `self.controle` logo depois de `self.ativacao`; e, em `_on_hotkey_triggered`, os ramos `control:pause` e `control:resume`.
 3. **Trechos que as duas frentes vão querer** (combinem antes, no comentário do pull request): a construção do editor (`_build_body`, onde está a frase de instrução e a linha de baixo com a tecla, a repetição e a velocidade), `_refresh_map_config_labels` e `_reload_map_list`.
-4. **A rede de proteção:** `tests/static/test_ligacao_ativacao.py` confere que as chamadas `self.ativacao.*` continuam nos 7 pontos da janela. Se ele falhar depois de uma junção, uma chamada sumiu: devolva-a (a mensagem diz qual). E `tests/unit/test_tema_visual.py` vigia o tema.
+4. **A rede de proteção:** `tests/static/test_ligacao_ativacao.py` confere que as chamadas `self.ativacao.*` continuam nos 7 pontos da janela, e `tests/static/test_ligacao_controle.py` confere que toda tecla de controle registrada tem ramo em `_on_hotkey_triggered` e que F9 e F10 chamam `self.controle.*`. Se um deles falhar depois de uma junção, uma chamada ou um ramo sumiu: devolva-o (a mensagem diz qual). E `tests/unit/test_tema_visual.py` vigia o tema.
 
 **Ensaio feito:** juntei, só para teste e sem tocar em ramo nenhum, `funcoes/ativacao-mapas` com `visual/novo-tema` (na versão `6e42294`): **zero conflitos**, e as duas suítes na árvore juntada dão o mesmo resultado de cada frente sozinha (só as 3 falhas antigas dos `.bat` em clone novo, ver `md/ENTREGA_25_8.md`).
 

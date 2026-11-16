@@ -1,14 +1,16 @@
-"""Janela de mentira para testar o controlador da ativação (automationstudio/ativacao_ui.py) sem a janela principal.
+"""Janela de mentira para testar os controladores da janela principal (automationstudio/ativacao_ui.py e controle_ui.py) sem ela.
 
-Só tem o que o controlador usa da MainWindow: as configurações de verdade (AppSettings numa pasta temporária), mapas
-simples (nome e tecla), o gerenciador de atalhos VERDADEIRO ligado a um monitor falso, e listas onde os disparos, os avisos
-e as mensagens da barra de status caem. Serve com ou sem Qt: não cria nenhum widget.
+Só tem o que os controladores usam da MainWindow: as configurações de verdade (AppSettings numa pasta temporária), mapas
+simples (nome e tecla), o gerenciador de atalhos VERDADEIRO ligado a um monitor falso, o motor (o que o teste passar, em
+`engine`; sem ele, nenhum) e listas onde os disparos, os avisos e as mensagens da barra de status caem. Serve com ou sem Qt:
+não cria nenhum widget.
 """
 from __future__ import annotations
 
 from types import SimpleNamespace
 
 from automationstudio.ativacao_ui import ControladorAtivacao
+from automationstudio.controle_ui import ControladorDeExecucao
 from automationstudio.input_system import GlobalHotkeyManager
 from automationstudio.project import AppSettings
 from testsupport.fakes import FakeMonitor
@@ -18,10 +20,11 @@ REAIS = {"Click genshin": "MOUSE_X1", "Exemplo — Primeira automação": "=", "
 
 
 class JanelaFalsa:
-    """Só o que o controlador usa da MainWindow."""
+    """Só o que os controladores usam da MainWindow."""
 
-    def __init__(self, pasta, mapas):
+    def __init__(self, pasta, mapas, engine=None):
         self.settings = AppSettings(pasta)
+        self.engine = engine
         self.project_manager = SimpleNamespace(maps={n: SimpleNamespace(name=n, hotkey=t) for n, t in mapas.items()})
         self.monitor = FakeMonitor()
         self.hotkey_manager = GlobalHotkeyManager(self.monitor)
@@ -32,6 +35,7 @@ class JanelaFalsa:
         self._current_map = None
         self.map_list = None
         self.ativacao = ControladorAtivacao(self, avisar=lambda titulo, texto: self.avisos.append((titulo, texto)))
+        self.controle = ControladorDeExecucao(self)
         self.hotkey_manager.start()
 
     # As duas funções da janela que o controlador chama depois de mudar alguma coisa.
@@ -52,9 +56,9 @@ class JanelaFalsa:
         self.monitor.click(botao, False)
 
 
-def abrir(pasta, mapas=None) -> JanelaFalsa:
-    """A janela como fica depois de `__init__`: sincroniza a ativação e registra os atalhos."""
-    janela = JanelaFalsa(pasta, REAIS if mapas is None else mapas)
+def abrir(pasta, mapas=None, engine=None) -> JanelaFalsa:
+    """A janela como fica depois de `__init__`: sincroniza a ativação e registra os atalhos. `engine`: o motor da janela."""
+    janela = JanelaFalsa(pasta, REAIS if mapas is None else mapas, engine)
     janela.ativacao.sincronizar()
     janela._register_all_hotkeys()
     return janela

@@ -1112,15 +1112,30 @@ class ExecutionEngine:
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
 
-    def pause(self) -> None:
-        if self.state.state == State.RUNNING:
+    def pause(self) -> bool:
+        """Pausa a execução. Devolve True se pausou; False se não havia execução em andamento (parado, gravando, parando ou
+        já pausado) ou se ela terminou ou foi parada no mesmo instante (a tecla vem da thread da janela, o motor corre em
+        outra). Nunca levanta `InvalidStateTransition`; uma pausa que não aconteceu não mexe na thread do motor."""
+        if self.state.state != State.RUNNING:
+            return False
+        try:
             self.state.transition_to(State.PAUSED)
-            self._pause_event.clear()
+        except core.InvalidStateTransition:
+            return False
+        self._pause_event.clear()
+        return True
 
-    def resume(self) -> None:
-        if self.state.state == State.PAUSED:
+    def resume(self) -> bool:
+        """Continua a execução pausada, do ponto onde parou. Devolve True se continuou; False se não havia pausa ou se a
+        execução foi parada no mesmo instante (quem para uma pausa é `stop`, que acorda a thread por conta própria)."""
+        if self.state.state != State.PAUSED:
+            return False
+        try:
             self.state.transition_to(State.RUNNING)
-            self._pause_event.set()
+        except core.InvalidStateTransition:
+            return False
+        self._pause_event.set()
+        return True
 
     def stop(self, wait: bool = False) -> None:
         """
