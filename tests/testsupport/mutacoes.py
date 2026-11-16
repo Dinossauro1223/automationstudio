@@ -449,6 +449,13 @@ CTL = "automationstudio/controle_ui.py"
 GOLD = "tests/data/golden/"
 
 
+def _sem_tecla_padrao(texto: str) -> str:
+    """Tira as duas camadas que dão a tecla "=" a um mapa sem tecla (a leitura e o __init__ do mapa)."""
+    leitura, construtor = 'hotkey=data.get("hotkey") or "=",', "        if not self.hotkey:"
+    assert leitura in texto and construtor in texto, "as duas camadas da tecla padrão mudaram: atualize o defeito MOD66"
+    return texto.replace(leitura, 'hotkey=data.get("hotkey"),', 1).replace(construtor, "        if False:", 1)
+
+
 def _motor_guardado(texto: str) -> str:
     """O controlador guarda `janela.engine` ao ser criado e passa a usar a cópia (uma referência que ficaria velha)."""
     guardado = texto.replace("        self.janela = janela\n", "        self.janela = janela\n        self._motor = janela.engine\n", 1)
@@ -1091,6 +1098,36 @@ def catalogo() -> list[Mutante]:
            CORE, "        elif self.repeat_count < -1:", "        elif False:"))
     add(_m("MOD56", "modelo", "repeat_count -1 (infinito) passa a ser recusado pela validação do mapa", "F2: -1 continua válido (2 dos 3 mapas reais o usam)",
            CORE, "        elif self.repeat_count < -1:", "        elif self.repeat_count <= -1:"))
+    # ---------------------------------------------------------------------------------------------- condições de espera por imagem: a validação nunca lança (25.9)
+    _EXC = "except (TypeError, ValueError, OverflowError):"   # aparece 3 vezes em conditions.py: precisão, intervalo e região, nessa ordem
+    add(_m("MOD57", "modelo", "uma precisão ilegível (\"0,9\") volta a lançar exceção na validação em vez de virar mensagem", "a validação devolve o erro que aponta o valor, nunca lança",
+           COND, _EXC, "except ZeroDivisionError:", ocorrencia=1, total=3))
+    add(_m("MOD58", "modelo", "um intervalo ilegível volta a lançar exceção na validação", "a validação devolve o erro que aponta o valor, nunca lança",
+           COND, _EXC, "except ZeroDivisionError:", ocorrencia=2, total=3))
+    add(_m("MOD59", "modelo", "um valor ilegível da região volta a passar (ou a lançar) na validação", "a validação recusa o que vision.capture_region não converte (int)",
+           COND, _EXC, "except ZeroDivisionError:", ocorrencia=3, total=3))
+    add(_m("MOD60", "modelo", "a região é validada com float() em vez de int(), como o executor não faz", "paridade com vision.capture_region: \"10.5\" (texto) não converte com int()",
+           COND, "                        value = int(region.get(key, 0))", "                        value = int(float(region.get(key, 0)))"))
+    add(_m("MOD61", "modelo", "a mensagem da vírgula decimal deixa de dizer para usar ponto", "o erro de digitação mais provável (0,9) vem com a dica",
+           COND, 'if isinstance(value, str) and "," in value else ""', 'if False else ""'))
+    add(_m("MOD62", "modelo", "o valor ilegível aparece inteiro na mensagem (400 dígitos)", "a mensagem mostra o valor cortado em 40 caracteres",
+           COND, '    return text if len(text) <= 40 else text[:37] + "..."', "    return text"))
+    add(_m("MOD63", "modelo", "x e y negativos da região passam a ser recusados", "monitor à esquerda ou acima da tela principal tem coordenada negativa",
+           COND, '                    if key in ("w", "h") and value < 0:', "                    if value < 0:"))
+    add(_m("MOD64", "modelo", "largura ou altura negativa da região passa na validação", "a região negativa é recusada com a mensagem de antes",
+           COND, '                    if key in ("w", "h") and value < 0:', "                    if False:"))
+    # ---------------------------------------------------------------------------------------------- lacunas do modelo apontadas pela cobertura (25.9)
+    add(_m("MOD65", "modelo", "o mapa criado sem tecla fica sem tecla", "mapa antigo salvo sem tecla ganha \"=\" ao abrir",
+           CORE, L("        if not self.hotkey:", '            self.hotkey = "="'), L("        if False:", '            self.hotkey = "="')))
+    add(_m("MOD66", "modelo", "o mapa lido sem tecla fica sem tecla (as duas camadas da tecla padrão)", "mapa antigo salvo sem tecla ganha \"=\" ao abrir",
+           CORE, funcao=_sem_tecla_padrao))
+    add(_m("MOD67", "modelo", "a duração total de um mapa vazio deixa de ser zero", "mapa sem comandos dura 0 s",
+           CORE, L("        if not self.commands:", "            return 0.0"), L("        if not self.commands:", "            return 1.0")))
+    add(_m("MOD68", "modelo", "a duração total de um mapa só com comandos desativados deixa de ser zero", "comando desativado não conta na duração",
+           CORE, "        return max((c.effective_end for c in self.commands if c.enabled), default=0.0)",
+           "        return max((c.effective_end for c in self.commands if c.enabled), default=1.0)"))
+    add(_m("MOD69", "modelo", "o reparo de IDs aceita um ID novo que já está em uso", "dois comandos nunca ficam com o mesmo ID",
+           CORE, "                while new_id in seen:", "                while False:"))
     add(_m("MOT34", "motor", "o executor abre o alvo sem tirar as aspas externas (conta diferente da validação)", "F2: executor e validação usam a mesma normalização do alvo",
            IS, "        exe = normalized_app_target(target)", '        exe = str(target or "").strip()'))
     add(_m("MOT35", "motor", "o executor deixa de recusar o alvo vazio de abrir aplicativo", "F2: sem programa a abrir, o executor recusa",
@@ -1135,6 +1172,12 @@ def catalogo() -> list[Mutante]:
            PRJ, 'dst.setdefault(m.name, []).append((current,self._size(current), label or "Alteração"))', "pass"))
     add(_m("PER16", "persistencia", "as configurações antigas (settings.json) migradas não são renomeadas", "migração de settings.json acontece uma vez",
            PRJ, "                legacy.rename(legacy.with_suffix('.json.migrado'))", "                pass"))
+    add(_m("PER17", "persistencia", "uma configuração que não é JSON é descartada na leitura (em vez de ficar como texto)", "caminho gravado sem aspas por versão antiga continua valendo",
+           PRJ, "            except Exception: self._data[key] = value", "            except Exception: pass"))
+    add(_m("PER18", "persistencia", "a migração do padrão antigo derruba a leitura quando não consegue regravar", "ler as configurações nunca falha por causa da regravação",
+           PRJ, L("                    self.save()", "                except Exception:"), L("                    self.save()", "                except ZeroDivisionError:")))
+    add(_m("PER19", "persistencia", "o tamanho de um snapshot que não serializa deixa de contar 4096 bytes", "o histórico não quebra com um snapshot que não serializa",
+           PRJ, "            return 4096", "            return 0"))
 
     # ---------------------------------------------------------------------------------------------- editor de comandos (2.07)
     i = INTERFACE
@@ -1205,6 +1248,22 @@ def catalogo() -> list[Mutante]:
            EDI, "c.scroll_dy=(lines if direction=='up' else -lines if direction=='down' else 0)", "c.scroll_dy=(-lines if direction=='up' else lines if direction=='down' else 0)", modo=i))
     add(_m("EDI31", "editor", "o editor oferece um botão do mouse que a validação recusa", "F2: a lista de botões do editor é a mesma da validação (core.MOUSE_BUTTON_NAMES)",
            EDI, "('Botão lateral 2','x2')]", "('Botão lateral 2','x2'),('Botão lateral 3','x3')]", modo=i))
+    # ---------------------------------------------------------------------------------------------- editor: condição de imagem com valor ilegível (25.9)
+    _EXC_EDI = "except (TypeError, ValueError, OverflowError):"   # aparece 2 vezes em command_editor.py: _numero_ou_padrao e o rótulo da condição, nessa ordem
+    add(_m("EDI32", "editor", "o rótulo da condição de imagem volta a lançar exceção com uma precisão ilegível (o comando não abre)", "um JSON editado à mão com \"0,9\" não impede de abrir o comando para corrigir",
+           EDI, _EXC_EDI, "except ZeroDivisionError:", ocorrencia=2, total=2, modo=i))
+    add(_m("EDI33", "editor", "editar uma condição de imagem com valor ilegível volta a lançar exceção", "o botão Editar carrega o padrão no campo que não dá para ler",
+           EDI, _EXC_EDI, "except ZeroDivisionError:", ocorrencia=1, total=2, modo=i))
+    add(_m("EDI34", "editor", "o rótulo mostra a precisão sem a regra do executor (nulo e zero valem 95%)", "o rótulo diz a precisão que vai valer de fato",
+           EDI, "precision = f'{float(confidence or 0.95):.0%}'", "precision = f'{float(confidence):.0%}'", modo=i))
+    add(_m("EDI35", "editor", "editar uma condição cuja região não é um objeto lança exceção", "região de outro tipo vira zeros no formulário",
+           EDI, "        if not isinstance(region, dict):\n            region={}", "        if False:\n            region={}", modo=i))
+    add(_m("EDI36", "editor", "editar uma condição de valor ilegível carrega 0 em vez do padrão", "o formulário abre com o padrão (95% e 0,5 s)",
+           EDI, "        return tipo(padrao)", "        return tipo(0)", modo=i))
+    add(_m("EDI37", "editor", "o rótulo de uma precisão ilegível não mostra o valor", "o rótulo mostra o que está gravado, para o usuário achar o erro",
+           EDI, "precision = f'ilegível ({_valor_curto(confidence)})'", "precision = 'ilegível'", modo=i))
+    add(_m("EDI38", "editor", "o valor ilegível aparece inteiro no rótulo da lista (centenas de caracteres)", "o rótulo mostra o valor cortado em 20 caracteres",
+           EDI, '    return texto if len(texto) <= limite else texto[:limite - 3] + "..."', "    return texto", modo=i))
 
     # ---------------------------------------------------------------------------------------------- redes de segurança dos testes
     add(_m("NET01", "redes", "a rede que bloqueia abrir aplicativo de verdade nos testes é desligada", "nenhum teste abre um aplicativo na máquina de quem roda a suíte",

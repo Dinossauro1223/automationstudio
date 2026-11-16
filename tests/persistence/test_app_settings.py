@@ -121,6 +121,18 @@ def test_padrao_antigo_de_abertura_de_aplicativo_e_migrado_e_regravado(tmp_path)
     assert (gravado["app_stable_ms"], gravado["app_after_open"]) == (1000, 0.3), "a migração fica gravada no banco"
 
 
+def test_migracao_do_padrao_antigo_nao_derruba_a_leitura_se_nao_conseguir_regravar(tmp_path, monkeypatch):
+    AppSettings(tmp_path).set_visual_settings({"app_stable_ms": 250, "app_after_open": 0.375})
+    configuracoes = AppSettings(tmp_path)
+
+    def banco_somente_leitura():
+        raise OSError("banco somente leitura")
+
+    monkeypatch.setattr(configuracoes, "save", banco_somente_leitura)
+    lido = configuracoes.get_visual_settings()
+    assert (lido["app_stable_ms"], lido["app_after_open"]) == (1000, 0.3), "o valor migrado vale mesmo sem conseguir gravá-lo"
+
+
 @pytest.mark.parametrize("estavel,depois", [(250, 0.5), (500, 0.375), (250, 0.376), (1000, 0.3), (0, 0.0)])
 def test_valores_personalizados_de_abertura_nao_sao_migrados(tmp_path, estavel, depois):
     AppSettings(tmp_path).set_visual_settings({"app_stable_ms": estavel, "app_after_open": depois})
@@ -153,6 +165,14 @@ def test_pasta_de_dados_so_com_a_chave_antiga_data_folder(tmp_path):
     configuracoes = AppSettings(tmp_path)
     antiga = tmp_path / "antiga"
     raw_exec(configuracoes.db_path, "INSERT INTO settings(key,value) VALUES(?,?)", ("data_folder", json.dumps(str(antiga))))
+    assert AppSettings(tmp_path).get_maps_folder(tmp_path / "padrao") == antiga
+
+
+def test_pasta_de_dados_gravada_como_texto_puro_continua_valendo(tmp_path):
+    # Versões antigas gravaram o caminho sem aspas JSON: não é JSON válido, e a leitura guarda o texto como veio.
+    configuracoes = AppSettings(tmp_path)
+    antiga = tmp_path / "antiga"
+    raw_exec(configuracoes.db_path, "INSERT INTO settings(key,value) VALUES(?,?)", ("data_folder", str(antiga)))
     assert AppSettings(tmp_path).get_maps_folder(tmp_path / "padrao") == antiga
 
 

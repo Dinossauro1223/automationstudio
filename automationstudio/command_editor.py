@@ -28,6 +28,25 @@ _ADV_WAIT_TIP = (
 )
 
 
+def _numero_ou_padrao(valor, padrao, tipo=float):
+    """`tipo(valor or padrão)`, a conta do executor (float na precisão e no intervalo, int na região); um valor que não
+    converte (texto com vírgula, lista, infinito...) vira o padrão.
+
+    Os parâmetros da condição de imagem vêm do mapa sem conversão: um JSON editado à mão pode trazer "0,9". A validação do
+    mapa avisa (WaitCondition.validate); o editor é por onde o usuário corrige, então ele tem de abrir o comando mesmo assim.
+    """
+    try:
+        return tipo(valor or padrao)
+    except (TypeError, ValueError, OverflowError):
+        return tipo(padrao)
+
+
+def _valor_curto(valor, limite=20):
+    """O valor como aparece num rótulo da lista: o `repr`, cortado (um texto enorme não cabe numa linha)."""
+    texto = repr(valor)
+    return texto if len(texto) <= limite else texto[:limite - 3] + "..."
+
+
 class SelectionRubberBand(QWidget):
     """Área de seleção visual da tabela, desenhada dentro do viewport."""
     def __init__(self, parent=None):
@@ -450,7 +469,12 @@ class CommandDialog(QDialog):
         elif condition.type == WaitConditionType.DELAY:
             text = f'Aguardar {float(condition.timeout or condition.after):g}s'
         elif condition.type == WaitConditionType.IMAGE:
-            text = f'Imagem: {Path(str(condition.parameters.get("image_path",""))).name or "(não definida)"} · precisão {float(condition.parameters.get("confidence",0.95)):.0%}'
+            confidence = condition.parameters.get("confidence", 0.95)
+            try:
+                precision = f'{float(confidence or 0.95):.0%}'   # o que o executor vai usar: nulo e zero valem o padrão
+            except (TypeError, ValueError, OverflowError):
+                precision = f'ilegível ({_valor_curto(confidence)})'
+            text = f'Imagem: {Path(str(condition.parameters.get("image_path",""))).name or "(não definida)"} · precisão {precision}'
         else:
             text = f'Condição: {condition.type.value}'
         item.setText(text); self.condition_list.addItem(item)
@@ -495,10 +519,12 @@ class CommandDialog(QDialog):
         p=condition.parameters or {}
         self.condition_search.setChecked(bool(p.get('search',False)))
         image_path=str(p.get('image_path','')); self.condition_image_path.setText(image_path); self._update_condition_preview(image_path)
-        self.condition_confidence.setValue(float(p.get('confidence',0.95) or 0.95))
-        self.condition_interval.setValue(float(p.get('interval',0.5) or 0.5))
+        self.condition_confidence.setValue(_numero_ou_padrao(p.get('confidence',0.95), 0.95))
+        self.condition_interval.setValue(_numero_ou_padrao(p.get('interval',0.5), 0.5))
         region=p.get('region',{}) or {}
-        self.condition_region_x.setValue(int(region.get('x',0) or 0)); self.condition_region_y.setValue(int(region.get('y',0) or 0)); self.condition_region_w.setValue(int(region.get('w',0) or 0)); self.condition_region_h.setValue(int(region.get('h',0) or 0))
+        if not isinstance(region, dict):
+            region={}
+        self.condition_region_x.setValue(_numero_ou_padrao(region.get('x',0), 0, int)); self.condition_region_y.setValue(_numero_ou_padrao(region.get('y',0), 0, int)); self.condition_region_w.setValue(_numero_ou_padrao(region.get('w',0), 0, int)); self.condition_region_h.setValue(_numero_ou_padrao(region.get('h',0), 0, int))
         self.condition_list.takeItem(row)
 
     def _update_condition_preview(self, path: str) -> None:

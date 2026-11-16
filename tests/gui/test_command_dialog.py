@@ -626,3 +626,81 @@ def test_condicao_adicionada_pode_ser_removida(gui):
     dialogo.condition_list.setCurrentRow(0)
     dialogo.condition_remove.click()
     assert dialogo.condition_list.count() == 0 and dialogo._current_conditions() == []
+
+
+# ------------------------------------------------------------------------------------ 9. condição de imagem com valor ilegível
+# Um JSON editado à mão pode trazer "0,9" (vírgula) ou lista onde o editor espera número. A validação do mapa já recusa isso com
+# mensagem (unit/test_wait_condition_validation.py); o editor é por onde o usuário corrige, então ele tem de ABRIR o comando.
+ILEGIVEIS = [{"confidence": "0,9"}, {"confidence": "alto"}, {"confidence": [0.9]}, {"interval": "x"},
+             {"region": {"x": "abc", "y": 0, "w": 10, "h": 10}}, {"region": {"x": float("inf"), "y": 0, "w": 10, "h": 10}},
+             {"region": {"x": float("nan"), "y": 0, "w": 10, "h": 10}}, {"region": [1, 2]}]
+ILEGIVEIS_IDS = ["precisao-virgula", "precisao-texto", "precisao-lista", "intervalo", "regiao", "regiao-infinito", "regiao-nan",
+                 "regiao-lista"]
+
+
+def _comando_com_imagem(**parametros):
+    condicao = WaitCondition(type=WaitConditionType.IMAGE, timeout=5.0, parameters={"image_path": "botao.png", **parametros})
+    return Command(type=W, conditions=[condicao])
+
+
+@pytest.mark.parametrize("parametros", ILEGIVEIS, ids=ILEGIVEIS_IDS)
+def test_comando_com_condicao_de_imagem_de_valor_ilegivel_abre_no_editor(gui, parametros):
+    dialogo = _abrir(_comando_com_imagem(**parametros))
+    assert dialogo.condition_list.count() == 1
+    assert dialogo.condition_list.item(0).text().startswith("Imagem: botao.png"), dialogo.condition_list.item(0).text()
+
+
+@pytest.mark.parametrize("parametros", ILEGIVEIS, ids=ILEGIVEIS_IDS)
+def test_abrir_e_salvar_sem_mexer_nao_altera_a_condicao_de_valor_ilegivel(gui, parametros):
+    # A regra central deste editor (cabeçalho do arquivo): abrir e salvar sem mexer não pode alterar o comando. Corrigir o
+    # valor é decisão de quem edita; o editor não "conserta" por conta própria (a validação do mapa é quem avisa).
+    original = _comando_com_imagem(**parametros)
+    comando = _aceitar(_abrir(original), gui)
+    assert comando.conditions[0].parameters == original.conditions[0].parameters
+
+
+def test_o_rotulo_da_condicao_de_imagem_mostra_o_valor_ilegivel(gui):
+    dialogo = _abrir(_comando_com_imagem(confidence="0,9"))
+    assert "'0,9'" in dialogo.condition_list.item(0).text(), dialogo.condition_list.item(0).text()
+
+
+@pytest.mark.parametrize("confianca,esperado", [(0.9, "90%"), ("0.8", "80%"), (None, "95%"), (0, "95%")],
+                         ids=["numero", "texto-com-numero", "nulo", "zero"])
+def test_o_rotulo_mostra_a_precisao_que_o_executor_vai_usar(gui, confianca, esperado):
+    # O executor faz float(valor or 0.95): nulo e zero viram 95%, e o rótulo diz o que vai valer de fato.
+    dialogo = _abrir(_comando_com_imagem(confidence=confianca))
+    assert dialogo.condition_list.item(0).text().endswith(f"precisão {esperado}"), dialogo.condition_list.item(0).text()
+
+
+@pytest.mark.parametrize("parametros", ILEGIVEIS, ids=ILEGIVEIS_IDS)
+def test_editar_a_condicao_de_valor_ilegivel_carrega_o_padrao_no_campo_ilegivel(gui, parametros):
+    dialogo = _abrir(_comando_com_imagem(**parametros))
+    dialogo.condition_list.setCurrentRow(0)
+    dialogo.condition_edit.click()
+    assert dialogo.condition_list.count() == 0, "a condição volta para o formulário (como em qualquer edição)"
+    assert dialogo.condition_image_path.text() == "botao.png" and dialogo.condition_timeout.value() == 5.0
+    assert dialogo.condition_confidence.value() == pytest.approx(0.95) and dialogo.condition_interval.value() == pytest.approx(0.5)
+    regiao = (dialogo.condition_region_x.value(), dialogo.condition_region_y.value(),
+              dialogo.condition_region_w.value(), dialogo.condition_region_h.value())
+    # "abc" no x vira 0, mas os outros valores da mesma região, que eram legíveis, são carregados; região que não é objeto vira 0.
+    assert regiao == ((0, 0, 10, 10) if isinstance(parametros.get("region"), dict) else (0, 0, 0, 0)), regiao
+
+
+def test_corrigir_o_valor_ilegivel_pelo_editor_deixa_o_comando_valido(gui, tmp_path):
+    imagem = write_png(tmp_path / "botao.png", 40, 30)
+    comando = Command(type=W, conditions=[WaitCondition(type=WaitConditionType.IMAGE, timeout=5.0,
+                                                        parameters={"image_path": imagem, "confidence": "0,9"})])
+    assert comando.validate(), "antes de corrigir, a validação recusa o valor"
+    dialogo = _abrir(comando)
+    dialogo.condition_list.setCurrentRow(0)
+    dialogo.condition_edit.click()
+    dialogo.condition_confidence.setValue(0.9)
+    dialogo.condition_add.click()
+    corrigido = _aceitar(dialogo, gui)
+    assert corrigido.validate() == [] and corrigido.conditions[0].parameters["confidence"] == pytest.approx(0.9)
+
+
+def test_o_rotulo_corta_o_valor_ilegivel_muito_longo(gui):
+    dialogo = _abrir(_comando_com_imagem(confidence="9" * 500 + ",5"))
+    texto = dialogo.condition_list.item(0).text()
+    assert "ilegível" in texto and len(texto) < 80, texto
