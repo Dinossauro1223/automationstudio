@@ -2637,9 +2637,7 @@ class CommandTableWidget(QWidget):
                 if item is None:
                     return True
                 if not self._editing_cell:
-                    self._editing_cell=True
-                    self._edit_origin=(item.row(), item.column())
-                    self.table.editItem(item)
+                    self.editar_celula_atual()
                     return True
                 self._editing_cell=False
                 r,c=self._edit_origin or (item.row(),item.column())
@@ -2762,6 +2760,18 @@ class CommandTableWidget(QWidget):
         index=self._selected_index()
         if index is None or not self._automation_map: return
         self.command_editor_requested.emit(self._automation_map.commands[index], index)
+
+    def editar_celula_atual(self) -> bool:
+        """Abre o editor da célula atual, como o Enter de planilha sempre fez, e diz se abriu. A F2 da edição pelo teclado (25.9, T3a) chama este
+        mesmo método. Coluna que não se edita na lista (a do número, a do tipo e a da tecla/botão/texto/programa: ver `_fill_row`) devolve False
+        e NÃO marca "editando": antes o Enter nelas ligava a marca sem abrir editor nenhum, e o Enter seguinte descia uma linha sem nada editado."""
+        item = self.table.currentItem()
+        if item is None or not (item.flags() & Qt.ItemIsEditable):
+            return False
+        self._editing_cell = True
+        self._edit_origin = (item.row(), item.column())
+        self.table.editItem(item)
+        return True
 
     def _begin_edit(self, item, *_args):
         if item.column() in (1,4,5,6): self.table.editItem(item)

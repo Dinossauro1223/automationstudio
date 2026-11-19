@@ -401,10 +401,10 @@ def test_atributo_que_nenhuma_classe_define_e_detectado_nos_testes_de_janela():
 
 def test_os_testes_de_janela_so_usam_nomes_que_existem_no_codigo():
     definidos = sc.names_defined_by_classes(_fontes())
-    herdados = frozenset({"windowTitle", "show", "close", "isVisible"})  # métodos da própria QMainWindow/QWidget
+    herdados = frozenset({"windowTitle", "show", "close", "isVisible", "raise_", "activateWindow", "isActiveWindow", "findChild"})  # métodos da própria QMainWindow/QWidget
     achados = {}
     for caminho, fonte in _fontes_de_teste().items():
-        if caminho.endswith(("tests/gui/test_main_window_smoke.py", "tests/gui/test_ativacao_janela.py")):
+        if caminho.endswith(("tests/gui/test_main_window_smoke.py", "tests/gui/test_ativacao_janela.py", "tests/gui/test_teclado_janela.py")):
             achados[caminho] = sc.unknown_attributes_on(fonte, {"janela", "painel"}, definidos, herdados)
     assert achados and all(v == [] for v in achados.values()), achados
 
