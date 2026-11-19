@@ -6,7 +6,7 @@ Quem liga isto à tabela e ao Qt é o T3; aqui se prova só o que o controlador 
 
 O desenho em uma frase: no estado NAVEGANDO só as teclas do atalho são "consumidas"; as outras voltam para a janela (setas,
 letras, Ctrl+C...). Dentro de uma edição o controlador manda: ele consome o que usa e, nos ajustes de valor, engole o resto
-(menos Ctrl e Alt) para a tabela não abrir um editor de célula por engano.
+(menos Ctrl e Alt) para a tabela não mudar a linha atual por engano.
 """
 from __future__ import annotations
 

@@ -70,6 +70,29 @@ def _valor_curto(valor, limite=20):
     return texto if len(texto) <= limite else texto[:limite - 3] + "..."
 
 
+# Os programas que a barra lateral oferece em "Abrir aplicativo" e em "Processo que deve aparecer": os comuns do Windows. FONTE ÚNICA: o
+# seletor de programa da edição pelo teclado (teclado_ui.py) oferece a mesma lista (25.9, ficha T3, decisão T3-15).
+PROGRAMAS_COMUNS: tuple[tuple[str, str], ...] = (
+    ('Microsoft Edge', 'msedge.exe'),
+    ('Bloco de Notas', 'notepad.exe'),
+    ('Explorador de Arquivos', 'explorer.exe'),
+    ('Calculadora', 'CalculatorApp.exe;calc.exe'),
+    ('Outlook (clássico)', 'outlook.exe'),
+    ('Outlook (novo)', 'olk.exe'),
+)
+
+
+def programas_conhecidos() -> list[tuple[str, str]]:
+    """(rótulo, executável) dos programas que se pode abrir: os comuns mais os que estiverem no PATH (python, cmd, powershell, wt), cada um
+    com o nome do arquivo como rótulo. Uma lista nova a cada chamada: quem a recebe pode acrescentar o executável que "Procurar..." devolveu."""
+    lista = list(PROGRAMAS_COMUNS)
+    for candidato in ('python.exe', 'cmd.exe', 'powershell.exe', 'wt.exe'):
+        achado = shutil.which(candidato)
+        if achado and not any(exe == achado for _, exe in lista):
+            lista.append((PureWindowsPath(achado).stem, achado))
+    return lista
+
+
 class SelectionRubberBand(QWidget):
     """Área de seleção visual da tabela, desenhada dentro do viewport."""
     def __init__(self, parent=None):
@@ -145,22 +168,12 @@ class CommandDialog(QDialog):
         self.wait_process_edit=QComboBox(); self.wait_process_edit.setEditable(True)
         self.wait_process_edit.setInsertPolicy(QComboBox.NoInsert)
         self.wait_process_edit.setPlaceholderText('Selecione um aplicativo ou informe o .exe')
-        self._process_presets=[
-            ('Microsoft Edge', 'msedge.exe'),
-            ('Bloco de Notas', 'notepad.exe'),
-            ('Explorador de Arquivos', 'explorer.exe'),
-            ('Calculadora', 'CalculatorApp.exe;calc.exe'),
-            ('Outlook (clássico)', 'outlook.exe'),
-            ('Outlook (novo)', 'olk.exe'),
-        ]
+        self._process_presets=list(PROGRAMAS_COMUNS)
         # A lista inicial combina aplicativos Windows comuns com executáveis
-        # encontrados no PATH. O botão de arquivo continua disponível para
-        # qualquer programa fora dessa lista.
-        self._app_presets = list(self._process_presets)
-        for candidate in ('python.exe','cmd.exe','powershell.exe','wt.exe'):
-            resolved = shutil.which(candidate)
-            if resolved and not any(exe == resolved for _, exe in self._app_presets):
-                self._app_presets.append((Path(resolved).stem, resolved))
+        # encontrados no PATH (`programas_conhecidos`, a mesma do editor pelo
+        # teclado). O botão de arquivo continua disponível para qualquer
+        # programa fora dessa lista.
+        self._app_presets = programas_conhecidos()
         self.wait_process_edit.addItem(self._NO_PROCESS_LABEL, '')
         for label,exe in self._process_presets:
             self.wait_process_edit.addItem(f'{label} — {exe}', exe)
@@ -2624,9 +2637,7 @@ class CommandTableWidget(QWidget):
                 if item is None:
                     return True
                 if not self._editing_cell:
-                    self._editing_cell=True
-                    self._edit_origin=(item.row(), item.column())
-                    self.table.editItem(item)
+                    self.editar_celula_atual()
                     return True
                 self._editing_cell=False
                 r,c=self._edit_origin or (item.row(),item.column())
@@ -2749,6 +2760,18 @@ class CommandTableWidget(QWidget):
         index=self._selected_index()
         if index is None or not self._automation_map: return
         self.command_editor_requested.emit(self._automation_map.commands[index], index)
+
+    def editar_celula_atual(self) -> bool:
+        """Abre o editor da célula atual, como o Enter de planilha sempre fez, e diz se abriu. A F2 da edição pelo teclado (25.9, T3a) chama este
+        mesmo método. Coluna que não se edita na lista (a do número, a do tipo e a da tecla/botão/texto/programa: ver `_fill_row`) devolve False
+        e NÃO marca "editando": antes o Enter nelas ligava a marca sem abrir editor nenhum, e o Enter seguinte descia uma linha sem nada editado."""
+        item = self.table.currentItem()
+        if item is None or not (item.flags() & Qt.ItemIsEditable):
+            return False
+        self._editing_cell = True
+        self._edit_origin = (item.row(), item.column())
+        self.table.editItem(item)
+        return True
 
     def _begin_edit(self, item, *_args):
         if item.column() in (1,4,5,6): self.table.editItem(item)

@@ -242,6 +242,20 @@ def abrir_janela(gui_real, tmp_path):
     gui_helpers.descartar_janelas(janelas)
 
 
+@pytest.fixture
+def sem_erro_do_teclado(runtime_log):
+    """O log de execução do teste (a mesma lista de `runtime_log`), com uma conferência no FIM: nenhuma linha `TECLADO_EDICAO` pode sobrar nele.
+
+    A edição pelo teclado (teclado_ui.py e teclado_ligacao.py) captura toda exceção em vez de a deixar sair de um slot do Qt, e a registra no log de
+    execução. Sem esta conferência um defeito ali passaria em silêncio por "o teste passou". Os testes que PROVOCAM o erro o confirmam e limpam a
+    lista (`.clear()`); o que sobrar reprova o teste.
+
+    Peça-a ANTES de `abrir_janela` na lista de parâmetros: assim ela monta antes e desmonta depois da janela, e pega também o erro do desmonte."""
+    yield runtime_log
+    erros = [linha for linha in runtime_log if "TECLADO_EDICAO" in linha]
+    assert not erros, "o teclado registrou erro no log de execução:\n" + "\n".join(erros)
+
+
 def pytest_runtest_logreport(report):
     """Mostra a falha NA HORA. O pytest só imprime o detalhe das falhas no FIM da rodada, e uma rodada que trava ou é
     encerrada (como a de 18/10/2026) nunca chega lá: o resultado era um `F` e nenhuma explicação. Hook do pytest; o

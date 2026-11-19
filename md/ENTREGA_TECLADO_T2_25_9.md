@@ -84,7 +84,7 @@ Medido em cópia limpa de cada commit (o `pytest` de verdade e o executor mínim
 5. **`Esc` cancela e `Shift+Esc` grava a Esc** (T2-11). A captura grava qualquer tecla com nome; sem essa exceção a automação nunca poderia apertar Esc pela captura. A dica da captura diz isso.
 6. **A curva** (D5, com os números da especificação): um toque 0,01 s; 3 s lentos; dobra a cada 2 s; teto de 60 s por segundo. É a leitura que fiz de "os 3 primeiros segundos bem lentos, depois cada vez mais rápido". **Só a mão diz se está boa** (T3 mais Windows); as seis constantes da curva ficam numa tabela.
 7. **Limites** (T2-6): tempo apertado de 0,01 s (o modelo recusa duração 0) a 3600 s; a espera, do piso do modelo a 3600 s; se o comando já passa de uma hora, vale o valor de hoje como teto, para a primeira seta não encolher um valor legítimo. A resolução é de 1 ms. **A hora de teto é minha**: o modelo não tem teto.
-8. **Em ajuste, o que o controlador não usa é engolido** (T2-9), menos Ctrl e Alt (que seguem para os atalhos da janela). Sem isso a tabela abriria um editor de célula a cada letra digitada no meio de um ajuste.
+8. **Em ajuste, o que o controlador não usa é engolido** (T2-9), menos Ctrl e Alt (que seguem para os atalhos da janela). Sem isso a tabela mudaria a linha atual no meio de um ajuste (↑ ↓, Home, End, PageUp, PageDown e a busca por letra digitada). *(Corrigido no T3a: o texto antigo dizia que a tabela abriria um editor de célula, o que não acontece, porque ela é `NoEditTriggers`. A regra e os testes não mudam.)*
 9. **A edição usa a ficha da linha de quando abriu** (T2-13): se a tabela atualizar no meio, o que está em edição não muda sozinho.
 10. **Texto vazio é recusado** com a dica, e a edição continua; texto igual ao de hoje só desmarca.
 

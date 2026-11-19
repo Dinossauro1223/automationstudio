@@ -23,7 +23,7 @@ Os estados:
   ESPERA      ← → mudam a espera antes do comando (a lacuna do modelo: `AutomationMap.gap_before`); Enter aceita, Esc descarta.
 
 Nos ajustes (BOTAO, TEMPO, ESPERA) as teclas que o controlador não usa são ENGOLIDAS (consumidas sem efeito), menos as com Ctrl ou
-Alt, que seguem para os atalhos da janela: sem isso a tabela abriria um editor de célula a cada letra digitada. O valor em edição só
+Alt, que seguem para os atalhos da janela: sem isso a tabela mudaria a linha atual (↑ ↓, Home, End, busca por letra digitada). O valor em edição só
 vai para o mapa no Enter (T2-6); Esc, o foco que sai ou a linha que muda o descartam (`descartar`).
 """
 from __future__ import annotations
@@ -323,6 +323,11 @@ def dica_do_estado(estado: Estado, linha: LinhaInfo | None = None, proposta: str
 _ROTULO_DO_BOTAO = {"left": "esquerdo", "right": "direito", "middle": "do meio", "x1": "lateral X1", "x2": "lateral X2"}
 
 
+def rotulo_do_botao(botao: str) -> str:
+    """O botão do mouse em português ("direito"): o que a barra de status mostra ao escolher e depois de gravar. O nome que a tabela não conhece volta como veio."""
+    return _ROTULO_DO_BOTAO.get(botao, botao)
+
+
 # ------------------------------------------------------------------------------------------------ o controlador
 class EdicaoPorTeclado:
     """O estado da edição pelo teclado. Uma instância por janela; ver a docstring do módulo."""
@@ -477,7 +482,7 @@ class EdicaoPorTeclado:
 
     # ---- botão do mouse -------------------------------------------------------------------------------------------------
     def _texto_do_botao(self) -> str:
-        return f"Botão do mouse: {_ROTULO_DO_BOTAO.get(self._botao, self._botao)} ({self._botao})"
+        return f"Botão do mouse: {rotulo_do_botao(self._botao)} ({self._botao})"
 
     def _botao_aberto(self, tecla: Tecla, nome: str, simples: bool, agora: float) -> Resposta:
         linha = self._linha

@@ -235,7 +235,7 @@ def test_registrar_o_plano_nao_levanta_quando_o_gerente_recusa_e_devolve_a_mensa
         def clear(self):
             self.aceitas.clear()
 
-        def register(self, tecla, callback):
+        def register(self, tecla, callback, suspensivel=False):
             if tecla == "F7":
                 raise HotkeyConflictError("recusado de propósito")
             self.aceitas.append(tecla)

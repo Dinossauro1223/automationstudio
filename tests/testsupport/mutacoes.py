@@ -471,6 +471,14 @@ def _controle_depois_dos_atalhos(texto: str) -> str:
     return sem if i < 0 else sem[: i + len(alvo)] + criacao + sem[i + len(alvo):]
 
 
+def _estado_guardado_depois_da_porta(texto: str) -> str:
+    """`_sincronizar` guarda o estado acertado só DEPOIS de chamar a porta: uma porta que falha deixa o estado velho e a limpeza repete o pedido."""
+    linha = "        self._estado = agora  # antes de chamar a porta: uma porta que falha não faz o mesmo pedido de novo na limpeza\n"
+    ultimo = '            fazer("acertar o relógio", lambda: self._porta.ligar_relogio(agora in _AJUSTES))\n'
+    assert texto.count(linha) == 1 and texto.count(ultimo) == 1, "o `_sincronizar` mudou: atualize o defeito TKL25"
+    return texto.replace(linha, "", 1).replace(ultimo, ultimo + "        self._estado = agora\n", 1)
+
+
 def catalogo() -> list[Mutante]:
     c: list[Mutante] = []
     add = c.append
@@ -640,6 +648,61 @@ def catalogo() -> list[Mutante]:
            IS, "            self.monitor.on_key.remove(self._key_cb)", "            pass"))
     add(_m("ATL11", "atalhos", "atalho vazio é aceito", "atalho vazio é erro",
            CORE, L("    if not parts:", '        raise ValueError("Atalho vazio.")'), L("    if False:", '        raise ValueError("Atalho vazio.")')))
+
+    # ---- a suspensão dos atalhos de automação durante a captura de tecla (25.9, T3a: T3-7). Os que parecem de outra peça mas são desta:
+    # o gerenciador é quem decide se uma combinação dispara; a ligação (TKL) só liga e desliga a suspensão pelo estado da edição.
+    suspender = "        self._suspenso = True\n"
+    cont_teclado = L("                    self._fired.add(combo)", "                    if self._retido(combo):", "                        continue")
+    cont_teclado_antes = L("                    if self._retido(combo):", "                        continue", "                    self._fired.add(combo)")
+    parar_antes = L("                    if self._retido(combo):", "                        continue")
+    parar_depois = L("                    if self._retido(combo):", "                        break")
+    add(_m("SUS01", "atalhos", "suspender() não suspende nada", "T3-7: suspenso, o atalho de automação não dispara",
+           IS, suspender, "        self._suspenso = False\n"))
+    add(_m("SUS02", "atalhos", "retomar() não devolve os atalhos (continuam suspensos)", "T3-7: retomar devolve o disparo",
+           IS, L("        self._suspenso = False", "        self._retoma_em = self._relogio() + max(0.0, float(graca))"),
+           L("        self._suspenso = True", "        self._retoma_em = self._relogio() + max(0.0, float(graca))")))
+    add(_m("SUS03", "atalhos", "a graça da retomada é ignorada (a automação parte na tecla que confirmou)", "T3-7: a graça cobre o Qt tratar a tecla antes do monitor",
+           IS, "        self._retoma_em = self._relogio() + max(0.0, float(graca))", "        self._retoma_em = self._relogio()"))
+    add(_m("SUS04", "atalhos", "a graça da retomada vale a metade do pedido", "T3-7: a graça dura o que foi pedido",
+           IS, "        self._retoma_em = self._relogio() + max(0.0, float(graca))", "        self._retoma_em = self._relogio() + max(0.0, float(graca)) / 2"))
+    add(_m("SUS05", "atalhos", "a graça da retomada vale o dobro do pedido", "T3-7: a graça dura o que foi pedido",
+           IS, "        self._retoma_em = self._relogio() + max(0.0, float(graca))", "        self._retoma_em = self._relogio() + max(0.0, float(graca)) * 2"))
+    add(_m("SUS06", "atalhos", "a suspensão da graça só termina um instante depois do combinado (<= no lugar de <)", "T3-7: a graça vai até o instante, exclusive",
+           IS, "        return self._suspenso or self._relogio() < self._retoma_em", "        return self._suspenso or self._relogio() <= self._retoma_em"))
+    add(_m("SUS07", "atalhos", "`suspenso` ignora a graça", "T3-7: depois de retomar, a graça ainda conta como suspenso",
+           IS, "        return self._suspenso or self._relogio() < self._retoma_em", "        return self._suspenso"))
+    add(_m("SUS08", "atalhos", "`suspenso` só vale dentro da graça (o ou virou e)", "T3-7: suspender() suspende até o retomar()",
+           IS, "        return self._suspenso or self._relogio() < self._retoma_em", "        return self._suspenso and self._relogio() < self._retoma_em"))
+    add(_m("SUS09", "atalhos", "o atalho sem a marca também é retido na suspensão", "T3-7: só os de automação calam; os de controle seguem valendo",
+           IS, "        return combo in self._suspensiveis and self.suspenso", "        return self.suspenso"))
+    add(_m("SUS10", "atalhos", "a tecla que se completa suspensa não conta como disparada (dispara ao retomar, ainda apertada)", "T3-7: nunca parte na tecla da confirmação",
+           IS, cont_teclado, cont_teclado_antes, ocorrencia=1, total=2))
+    add(_m("SUS11", "atalhos", "o botão do mouse que se completa suspenso não conta como disparado", "T3-7: nunca parte no botão da confirmação",
+           IS, cont_teclado, cont_teclado_antes, ocorrencia=2, total=2))
+    add(_m("SUS12", "atalhos", "um atalho retido na suspensão impede os outros da mesma apertada de teclado", "T3-7: o que está suspenso não atrapalha o resto",
+           IS, parar_antes, parar_depois, ocorrencia=1, total=2))
+    add(_m("SUS13", "atalhos", "um atalho retido na suspensão impede os outros do mesmo botão do mouse", "T3-7: o que está suspenso não atrapalha o resto",
+           IS, parar_antes, parar_depois, ocorrencia=2, total=2))
+    add(_m("SUS14", "atalhos", "registrar com a marca não marca o atalho como suspensível", "T3-7: o atalho de automação marcado cala na captura",
+           IS, L("        if suspensivel:", "            self._suspensiveis.add(combo)"), L("        if suspensivel:", "            pass")))
+    add(_m("SUS15", "atalhos", "registrar de novo sem a marca não tira a marca de antes", "T3-7: a marca acompanha o último registro",
+           IS, L("        else:", "            self._suspensiveis.discard(combo)"), L("        else:", "            pass")))
+    add(_m("SUS16", "atalhos", "limpar os atalhos acaba com a suspensão em curso", "T3-7: refazer os atalhos no meio da captura não a solta",
+           IS, L("        self._suspensiveis.clear()", "        self._pressed.clear()"),
+           L("        self._suspensiveis.clear()", "        self._suspenso = False", "        self._pressed.clear()")))
+    add(_m("SUS17", "atalhos", "parar o gerenciador acaba com a suspensão em curso", "T3-7: parar e suspender são coisas separadas",
+           IS, L("        self._fired.clear()", "", "    # ---- Callback (roda na thread do listener do pynput) ----------------"),
+           L("        self._fired.clear()", "        self._suspenso = False", "", "    # ---- Callback (roda na thread do listener do pynput) ----------------")))
+    add(_m("SUS18", "atalhos", "retomar() sem argumento deixa uma graça de 0,25 s", "T3-7: sem graça, a retomada vale na hora",
+           IS, "    def retomar(self, graca: float = 0.0) -> None:", "    def retomar(self, graca: float = 0.25) -> None:"))
+    add(_m("SUS19", "atalhos", "o relógio padrão da graça é o de parede e não o monotônico", "T3-7: o relógio da graça não anda para trás com o relógio do Windows",
+           IS, "relogio: Callable[[], float] = time.monotonic) -> None:", "relogio: Callable[[], float] = time.time) -> None:"))
+    add(_m("SUS20", "atalhos", "o plano não marca os atalhos de mapa como suspensíveis (as automações disparam durante a captura)", "T3-7: só as automações calam",
+           ATV, "suspensivel=registro.e_mapa", "suspensivel=False"))
+    add(_m("SUS21", "atalhos", "o plano marca todos os atalhos como suspensíveis (a parada de emergência cala na captura)", "T3-7: pausar, continuar e emergência seguem valendo",
+           ATV, "suspensivel=registro.e_mapa", "suspensivel=True"))
+    add(_m("SUS22", "atalhos", "o gerenciador já nasce suspenso", "T3-7: sem suspender(), tudo dispara como sempre",
+           IS, L("        self._suspenso = False", "        self._retoma_em = 0.0"), L("        self._suspenso = True", "        self._retoma_em = 0.0")))
 
     # ---------------------------------------------------------------------------------------------- ativação por mapa (25.8)
     # A lógica (ativacao.py) e o controlador (ativacao_ui.py) rodam no modo LÓGICA; a faixa e a lista, que são widgets, no dublê.
@@ -1148,7 +1211,7 @@ def catalogo() -> list[Mutante]:
     # ajuste com as setas
     add(_m("TKE56", "teclado", "dentro de um ajuste Ctrl e Alt também são engolidos", "T2/TEC-08: Ctrl e Alt seguem para os atalhos da janela", TKE,
            "        return _NADA if (tecla.ctrl or tecla.alt) else Resposta(True, ())", "        return Resposta(True, ())"))
-    add(_m("TKE57", "teclado", "dentro de um ajuste nada é engolido (a tabela abriria um editor de célula a cada letra)", "T2-9: o ajuste engole o resto", TKE,
+    add(_m("TKE57", "teclado", "dentro de um ajuste nada é engolido (a tabela mudaria a linha atual a cada letra ou seta)", "T2-9: o ajuste engole o resto", TKE,
            "        return _NADA if (tecla.ctrl or tecla.alt) else Resposta(True, ())", "        return _NADA"))
     add(_m("TKE58", "teclado", "a repetição do sistema da mesma seta reinicia a contagem", "T2-7: a rampa usa o relógio, não a repetição de tecla", TKE,
            "        if nome == self._seta:\n            return Resposta(True, ())", "        if False:\n            return Resposta(True, ())"))
@@ -1225,6 +1288,256 @@ def catalogo() -> list[Mutante]:
     add(_m("TKE89", "teclado", "a chave de uma tecla põe o Shift antes do Ctrl", "T2: ordem Ctrl, Alt, Shift", TKE,
            '    prefixo = ("CTRL+" if tecla.ctrl else "") + ("ALT+" if tecla.alt else "") + ("SHIFT+" if tecla.shift else "")',
            '    prefixo = ("SHIFT+" if tecla.shift else "") + ("CTRL+" if tecla.ctrl else "") + ("ALT+" if tecla.alt else "")'))
+
+    # ---- a ligação da edição pelo teclado com a janela (25.9, T3a): teclado_ligacao.py (o que a janela conta e o que se faz com os efeitos), teclado_aplicar.py
+    # (o que se grava no mapa) e teclado_teclas.py (de evento do Qt para a tecla do Studio). Os testes são tests/unit/test_teclado_ligacao.py,
+    # test_teclado_aplicar.py, test_teclado_teclas.py e test_teclado_varredura.py. teclado_ui.py (a única peça com Qt) NÃO tem defeitos aqui: este
+    # verificador roda com o dublê de widgets, que não a exercita; quem a cobre são os testes de janela com o Qt real (tests/gui/test_teclado_janela.py).
+    TKL = "automationstudio/teclado_ligacao.py"
+    TKA = "automationstudio/teclado_aplicar.py"
+    TKT = "automationstudio/teclado_teclas.py"
+    # a ligação: que teclas ela consome
+    add(_m("TKL01", "teclado", "Ctrl e Alt chegam ao controlador (a ligação não os devolve à janela)", "T3-8: Ctrl+Z desfaz mesmo no meio de uma edição", TKL,
+           L("        if tecla.ctrl or tecla.alt:", "            return False", "        identidade"), "        identidade"))
+    add(_m("TKL02", "teclado", "só o Ctrl volta à janela (o Alt chega ao controlador)", "T3-8: Ctrl e Alt voltam inteiros", TKL,
+           "        if tecla.ctrl or tecla.alt:", "        if tecla.ctrl:"))
+    add(_m("TKL03", "teclado", "a repetição do sistema chega ao controlador", "T3-3: a tecla segurada nunca chega ao controlador", TKL,
+           L("        if repeticao:", "            return identidade in self._seguradas", ""), ""))
+    add(_m("TKL04", "teclado", "toda repetição é consumida (segurar ↓ deixa de rolar a tabela)", "T3-3: a repetição segue o aperto que a originou", TKL,
+           "            return identidade in self._seguradas", "            return True"))
+    add(_m("TKL05", "teclado", "nenhuma repetição é consumida (a tecla que confirmou vira busca por letra)", "T3-3: a repetição segue o aperto que a originou", TKL,
+           "            return identidade in self._seguradas", "            return False"))
+    add(_m("TKL06", "teclado", "um aperto consumido não é lembrado", "T3-3: a repetição de uma tecla consumida é consumida", TKL,
+           L("        if consumida:", "            self._seguradas.add(identidade)"), L("        if consumida:", "            pass")))
+    add(_m("TKL07", "teclado", "soltar a tecla não encerra o consumo da repetição", "T3-3: a soltura encerra o consumo", TKL,
+           "        self._seguradas.discard(nome.upper())\n", ""))
+    add(_m("TKL08", "teclado", "um aperto que segue para o Qt não apaga o consumo do aperto anterior", "T3-3: quem decide é o último aperto da tecla", TKL,
+           L("        else:", "            self._seguradas.discard(identidade)"), L("        else:", "            pass")))
+    add(_m("TKL09", "teclado", "a ligação nunca consome nada (devolve sempre falso)", "a tecla da edição é retida pela janela", TKL,
+           L("            self._seguradas.discard(identidade)", "        return consumida"), L("            self._seguradas.discard(identidade)", "        return False")))
+    add(_m("TKL10", "teclado", "navegando, qualquer tecla consulta a janela (a digitação comum passa a custar uma consulta e pode ser consumida)",
+           "T3-4: só as quatro teclas da navegação consultam a porta", TKL,
+           L("            if chave_da_tecla(tecla) not in _NAVEGACAO:", "                return False  # a digitação comum não custa uma consulta à janela"),
+           L("            if False:", "                return False")))
+    add(_m("TKL11", "teclado", "sem linha selecionada a tecla da navegação é consumida", "T3-4: sem linha selecionada segue o caminho antigo", TKL,
+           L("            if selecionadas == 0:", "                return False"), L("            if selecionadas == 0:", "                return True")))
+    add(_m("TKL12", "teclado", "com várias linhas selecionadas a tecla segue para a tabela", "T3-4: com duas ou mais, a tecla é consumida com uma dica", TKL,
+           "SEGUNDOS_DA_MENSAGEM)\n                return True", "SEGUNDOS_DA_MENSAGEM)\n                return False"))
+    add(_m("TKL13", "teclado", "a dica das várias linhas conta uma a menos", "T3-4: a dica diz quantos estão selecionados", TKL,
+           "(há {selecionadas} selecionados)", "(há {selecionadas - 1} selecionados)"))
+    add(_m("TKL14", "teclado", "duas linhas selecionadas passam por uma", "T3-4: duas ou mais linhas não se editam", TKL,
+           "            if selecionadas > 1:", "            if selecionadas > 2:"))
+    add(_m("TKL15", "teclado", "no texto, qualquer tecla lê o texto do editor", "T3-1: só o Enter consulta o texto do editor", TKL,
+           '        elif estado == Estado.TEXTO and tecla.nome.upper() == "ENTER":', "        elif estado == Estado.TEXTO:"))
+    add(_m("TKL16", "teclado", "o Enter do texto entrega um texto vazio ao controlador", "T3-1: o Enter confirma o texto digitado", TKL,
+           "            texto = self._porta.texto_do_editor()  # só o Enter confirma: as outras teclas são do editor",
+           '            texto = ""  # só o Enter confirma: as outras teclas são do editor'))
+    # a ligação: o que faz com os efeitos
+    add(_m("TKL17", "teclado", "descartar uma edição não sobe a geração (o resto dos efeitos dela ainda roda)", "T3-13: uma edição descartada no meio não abre editor", TKL,
+           "            self._geracao += 1", "            pass"))
+    add(_m("TKL18", "teclado", "os efeitos ignoram a geração (rodam mesmo depois do descarte)", "T3-13: uma edição descartada no meio não abre editor", TKL,
+           "            if self._geracao != geracao:", "            if False:"))
+    add(_m("TKL19", "teclado", "um efeito sem tratamento é pulado em silêncio", "T3-13: efeito desconhecido é erro, nunca silêncio", TKL,
+           '            raise TypeError(f"efeito sem tratamento: {type(efeito).__name__}")', "            continue"))
+    add(_m("TKL20", "teclado", "entrar na captura não suspende os atalhos de automação", "T3-7: na captura os atalhos de automação calam", TKL,
+           "        if (antes == Estado.TECLA) != (agora == Estado.TECLA):", "        if False:"))
+    add(_m("TKL21", "teclado", "sair da captura não retoma os atalhos de automação", "T3-7: toda saída da captura retoma os atalhos", TKL,
+           "self._porta.suspender_atalhos(agora == Estado.TECLA)", "self._porta.suspender_atalhos(True)"))
+    add(_m("TKL22", "teclado", "o relógio de 30 Hz nunca liga (a seta segurada não anda)", "T3-3: o relógio roda em tempo e espera", TKL,
+           "        if (antes in _AJUSTES) != (agora in _AJUSTES):", "        if False:"))
+    add(_m("TKL23", "teclado", "o relógio de 30 Hz nunca desliga", "T3-3: o relógio só roda em tempo e espera", TKL,
+           "self._porta.ligar_relogio(agora in _AJUSTES)", "self._porta.ligar_relogio(True)"))
+    add(_m("TKL24", "teclado", "o relógio também roda na captura de tecla", "T3-3: o relógio só roda em tempo e espera", TKL,
+           "_AJUSTES = frozenset({Estado.TEMPO, Estado.ESPERA})", "_AJUSTES = frozenset({Estado.TEMPO, Estado.ESPERA, Estado.TECLA})"))
+    add(_m("TKL25", "teclado", "o último estado acertado só é guardado depois de chamar a porta (uma porta que falha repete o pedido na limpeza)",
+           "T3-13: uma porta que falha não faz o mesmo pedido de novo", TKL,
+           funcao=lambda t: _estado_guardado_depois_da_porta(t)))
+    # a ligação: os erros (T3-13)
+    add(_m("TKL26", "teclado", "um erro na edição não é registrado no log de execução", "T3-13: todo erro vai para o log", TKL,
+           '        _append_runtime_log(f"TECLADO_EDICAO erro={type(erro).__name__}: {erro} estado={self._estado.value}")\n', ""))
+    add(_m("TKL27", "teclado", "um erro não descarta a edição em curso", "T3-13: depois de um erro a tabela fica livre", TKL,
+           '        self._tentar("descartar a edição", self._controlador.descartar)\n', ""))
+    add(_m("TKL28", "teclado", "um erro não tira a marca da linha", "T3-13: depois de um erro a linha não fica marcada", TKL,
+           '        self._tentar("tirar a marca", self._porta.desmarcar)\n', ""))
+    add(_m("TKL29", "teclado", "um erro depois de gravar diz que nada foi gravado", "T3-13: o aviso de erro diz se a mudança foi gravada", TKL,
+           "MENSAGEM_DO_ERRO_GRAVADO if gravou else MENSAGEM_DO_ERRO,", "MENSAGEM_DO_ERRO,"))
+    add(_m("TKL30", "teclado", "um erro não reacerta os interruptores (os atalhos ficam suspensos)", "T3-13: depois de um erro os atalhos voltam", TKL,
+           '        self._tentar("acertar os interruptores", lambda: self._sincronizar(protegido=True))\n', ""))
+    add(_m("TKL31", "teclado", "a marca de 'já gravou' não é zerada a cada chamada de fora", "T3-13: o aviso de erro não herda a gravação de outra chamada", TKL,
+           L("        if self._fundo == 0:", "            self._gravou = False"), L("        if self._fundo == 0:", "            pass")))
+    add(_m("TKL32", "teclado", "um erro deixa a tecla seguir para o Qt", "T3-13: a tecla do erro é consumida", TKL,
+           L("            self._falhou(erro)", "            consumida = True"), L("            self._falhou(erro)", "            consumida = False")))
+    add(_m("TKL33", "teclado", "um erro na limpeza de um erro escapa", "T3-13: a limpeza de um erro não levanta de novo", TKL,
+           "        except Exception as erro:  # noqa: BLE001 - a limpeza de um erro não pode ter erro que escape",
+           "        except ZeroDivisionError as erro:  # noqa: BLE001 - a limpeza de um erro não pode ter erro que escape"))
+    # a ligação: o que diz na barra de status
+    add(_m("TKL34", "teclado", "a frase do que mudou aparece antes da dica da navegação (e a dica a cobre)", "T3-12: a frase aparece depois da dica da navegação", TKL,
+           '            self._pendente = f"{descricao}.{aviso} Ctrl+Z desfaz."',
+           L('            self._pendente = f"{descricao}.{aviso} Ctrl+Z desfaz."', "            self._mostrar_pendente()")))
+    add(_m("TKL35", "teclado", "a frase do que mudou deixa de lembrar o Ctrl+Z", "T3-12: a frase diz que Ctrl+Z desfaz", TKL,
+           '{aviso} Ctrl+Z desfaz."', '{aviso}"'))
+    add(_m("TKL36", "teclado", "o aviso de uma gravação não chega à frase", "T3-6: o aviso do processo esperado aparece", TKL,
+           '            aviso = f" {resultado.aviso}" if resultado.aviso else ""', '            aviso = ""'))
+    add(_m("TKL37", "teclado", "uma recusa sem mensagem fica sem frase", "T3-12: toda recusa diz que nada foi gravado", TKL,
+           "resultado.mensagem or _NADA_GRAVADO", "resultado.mensagem"))
+    add(_m("TKL38", "teclado", "um AplicarAlvo vindo de um estado que não grava alvo não é recusado", "T3-13: só captura, botão e programa gravam um alvo", TKL,
+           "        if self._estado not in _ALVO_POR_ESTADO:", "        if False:"))
+    add(_m("TKL39", "teclado", "o passo do histórico da tecla ganha outro nome", "T3-14: o rótulo é 'Editar tecla'", TKL,
+           'Estado.TECLA: ("Editar tecla",', 'Estado.TECLA: ("Editar teclas",'))
+    add(_m("TKL40", "teclado", "a frase do botão mostra o nome técnico e não o rótulo", "T3-12: a frase usa o rótulo do botão", TKL,
+           'f"Botão do mouse trocado para {rotulo_do_botao(valor)}"', 'f"Botão do mouse trocado para {valor}"'))
+    add(_m("TKL41", "teclado", "a frase do programa mostra o caminho inteiro", "T3-12: a frase usa o nome do arquivo", TKL,
+           'f"Programa trocado para {nome_do_processo(valor) or valor}"', 'f"Programa trocado para {valor}"'))
+    add(_m("TKL42", "teclado", "os rótulos do tempo apertado e da espera trocam de lugar", "T3-14: cada edição tem o seu rótulo no histórico", TKL,
+           'ROTULO_TEXTO, ROTULO_TEMPO, ROTULO_ESPERA = "Editar texto", "Editar tempo apertado", "Editar espera"',
+           'ROTULO_TEXTO, ROTULO_TEMPO, ROTULO_ESPERA = "Editar texto", "Editar espera", "Editar tempo apertado"'))
+    add(_m("TKL43", "teclado", "a espera da linha 0 diz 'antes do comando' e a da linha 1 diz 'começa em'", "T3-12: a linha 0 começa a partir do início", TKL,
+           'if efeito.linha == 0 else f"Espera antes do comando: {numero}"', 'if efeito.linha == 1 else f"Espera antes do comando: {numero}"'))
+    add(_m("TKL44", "teclado", "ganhar o foco no meio de uma edição troca a dica dela pela da navegação", "T3-9: com edição em curso a dica é a dela", TKL,
+           L("        if not self.editando():", '            self._tentar("mostrar a dica", lambda: self._porta.dica(DICA_NAVEGANDO, 0.0))'),
+           L("        if True:", '            self._tentar("mostrar a dica", lambda: self._porta.dica(DICA_NAVEGANDO, 0.0))')))
+    add(_m("TKL45", "teclado", "perder o foco não limpa a dica", "T3-9: sem o foco da tabela a dica some", TKL,
+           '        self._tentar("limpar a dica", self._porta.limpar_dica)\n', ""))
+    add(_m("TKL46", "teclado", "perder o foco não descarta a edição", "T3-8: sem o foco a edição não vale", TKL,
+           L("        self.descartar()", '        self._tentar("limpar a dica", self._porta.limpar_dica)'),
+           L("        pass", '        self._tentar("limpar a dica", self._porta.limpar_dica)')))
+    add(_m("TKL47", "teclado", "mudar a seleção não descarta a edição", "T3-8: outra linha selecionada invalida a edição", TKL,
+           L('        """A seleção da tabela mudou (inclui o `refresh` de um desfazer e a linha do tempo selecionando): descarta."""', "        self.descartar()"),
+           L('        """A seleção da tabela mudou (inclui o `refresh` de um desfazer e a linha do tempo selecionando): descarta."""', "        pass")))
+    add(_m("TKL48", "teclado", "soltar a seta entrega o instante zero ao controlador", "T3-3: a soltura fixa o valor do instante", TKL,
+           "self._entregar(self._controlador.soltar(nome, self._relogio()))", "self._entregar(self._controlador.soltar(nome, 0.0))"))
+    add(_m("TKL49", "teclado", "o tique do relógio entrega o instante zero ao controlador", "T3-3: a rampa anda pelo relógio", TKL,
+           "self._entregar(self._controlador.tique(self._relogio()))", "self._entregar(self._controlador.tique(0.0))"))
+    add(_m("TKL50", "teclado", "'capturando' vale para qualquer edição", "T3-10: só a captura distingue o teclado numérico", TKL,
+           "        return self._controlador.estado == Estado.TECLA", "        return self._controlador.estado != Estado.NAVEGANDO"))
+    add(_m("TKL51", "teclado", "'editando' vale só na captura de tecla", "T3-9: o Esc do aplicativo cede em qualquer edição", TKL,
+           "        return self._controlador.estado != Estado.NAVEGANDO", "        return self._controlador.estado == Estado.TECLA"))
+    add(_m("TKL52", "teclado", "'descartar' não faz nada", "T3-8: descartar acaba com a edição em curso", TKL,
+           "        self._guardado(self._descartando)", "        pass"))
+    add(_m("TKL53", "teclado", "o fim da edição não mostra a dica da navegação", "T3-9: ao terminar volta a dica da navegação", TKL,
+           L("        self._porta.desmarcar()", "        self._porta.dica(DICA_NAVEGANDO, 0.0)", "        self._mostrar_pendente()"),
+           L("        self._porta.desmarcar()", "        self._mostrar_pendente()")))
+    # o que se grava no mapa (teclado_aplicar.py)
+    add(_m("TKA01", "teclado", "marcar aceita o índice negativo (o último comando)", "T3-6: índice fora do mapa é erro", TKA,
+           "    if not 0 <= indice < len(mapa.commands):", "    if not indice < len(mapa.commands):"))
+    add(_m("TKA02", "teclado", "a marca guarda sempre o tipo 'tecla'", "T3-6: a marca é o comando como era", TKA,
+           "    return Marca(indice=indice, id=comando.id, tipo=comando.type)", "    return Marca(indice=indice, id=comando.id, tipo=InputType.KEY)"))
+    add(_m("TKA03", "teclado", "a conferência aceita a marca de índice negativo", "T3-6: o índice negativo nunca confere", TKA,
+           "    if not 0 <= marca.indice < len(mapa.commands):", "    if not marca.indice < len(mapa.commands):"))
+    add(_m("TKA04", "teclado", "a conferência ignora o id do comando", "T3-6: um comando trocado por outro do mesmo tipo não se grava", TKA,
+           "    if comando.id != marca.id or comando.type != marca.tipo:", "    if comando.type != marca.tipo:"))
+    add(_m("TKA05", "teclado", "a conferência ignora o tipo do comando", "T3-6: um comando trocado por outro de outro tipo não se grava", TKA,
+           "    if comando.id != marca.id or comando.type != marca.tipo:", "    if comando.id != marca.id:"))
+    add(_m("TKA06", "teclado", "a tecla gravada não vai em maiúsculas", "T3-6: a tecla em maiúsculas, como a barra lateral", TKA,
+           "        tecla = texto.strip().upper()", "        tecla = texto.strip()"))
+    add(_m("TKA07", "teclado", "a tecla gravada não é aparada", "T3-6: espaços nas pontas não entram na tecla", TKA,
+           "        tecla = texto.strip().upper()", "        tecla = texto.upper()"))
+    add(_m("TKA08", "teclado", "o botão gravado não vai em minúsculas", "T3-6: o botão em minúsculas, como o motor o compara", TKA,
+           "        botao = texto.strip().lower()", "        botao = texto.strip()"))
+    add(_m("TKA09", "teclado", "um botão que o modelo não conhece é gravado", "T3-6: botão desconhecido é recusado", TKA,
+           "        if botao not in MOUSE_BUTTON_NAMES:", "        if False:"))
+    add(_m("TKA10", "teclado", "uma tecla vazia é gravada", "T3-6: tecla vazia é recusada", TKA,
+           "        if not tecla:", "        if False:"))
+    add(_m("TKA11", "teclado", "o processo esperado sempre acompanha o programa (cria uma espera que o dono não tinha)", "T3-6: vazio continua vazio", TKA,
+           "    acompanha = bool(esperado) and esperado.casefold() == nome_antigo.casefold()", "    acompanha = True"))
+    add(_m("TKA12", "teclado", "o processo esperado diferencia maiúsculas do nome do programa antigo", "T3-6: a comparação ignora maiúsculas", TKA,
+           "esperado.casefold() == nome_antigo.casefold()", "esperado == nome_antigo"))
+    add(_m("TKA13", "teclado", "o processo esperado nunca acompanha o programa", "T3-6: o processo do programa antigo passa a ser o do novo", TKA,
+           "    acompanha = bool(esperado) and esperado.casefold() == nome_antigo.casefold()", "    acompanha = False"))
+    add(_m("TKA14", "teclado", "o aviso de um processo esperado diferente nunca aparece", "T3-6: o dono é avisado de que o processo continua o antigo", TKA,
+           "    if esperado and not acompanha:", "    if False:"))
+    add(_m("TKA15", "teclado", "o aviso cita o nome novo e não o processo que continua esperado", "T3-6: o aviso diz qual processo continua esperado", TKA,
+           "continua esperando o processo «{esperado}»", "continua esperando o processo «{nome_novo}»"))
+    add(_m("TKA16", "teclado", "um programa sem nome de arquivo é gravado", "T3-6: programa sem nome de arquivo é recusado", TKA,
+           "    if not nome_novo:", "    if False:"))
+    add(_m("TKA17", "teclado", "o programa não é normalizado (aspas ficam)", "T3-6: o programa é normalizado como na barra lateral", TKA,
+           "    programa = normalized_app_target(texto).strip()", "    programa = texto.strip()"))
+    add(_m("TKA18", "teclado", "o nome do processo vira o caminho inteiro", "T3-6: o processo esperado é o nome do arquivo", TKA,
+           "    return PureWindowsPath(normalized_app_target(alvo).strip()).name", "    return str(PureWindowsPath(normalized_app_target(alvo).strip()))"))
+    add(_m("TKA19", "teclado", "o texto gravado é aparado", "T3-6: o texto vai como veio, sem aparar", TKA,
+           '    novo = "" if texto is None else str(texto)', '    novo = "" if texto is None else str(texto).strip()'))
+    add(_m("TKA20", "teclado", "o texto gravado não recalcula a duração", "T3-6: a duração do texto é recalculada como na barra lateral", TKA,
+           "    comando.duration = calculate_text_duration(novo)", "    pass"))
+    add(_m("TKA21", "teclado", "um texto vazio é gravado", "T3-6: texto vazio é recusado", TKA,
+           "    if not novo:", "    if False:"))
+    add(_m("TKA22", "teclado", "um texto é gravado num comando que não é de texto", "T3-6: só o comando de texto recebe texto", TKA,
+           "    if comando.type != InputType.TEXT:", "    if False:"))
+    add(_m("TKA23", "teclado", "o tempo apertado não é arredondado ao milissegundo", "T3-6/D5: a resolução é 1 ms", TKA,
+           "    tempo = round(numero, _CASAS)", "    tempo = numero"))
+    add(_m("TKA24", "teclado", "um tempo apertado zero é gravado", "T3-6: o tempo apertado vai de 0,001 s a 3600 s", TKA,
+           "    if not 0.0 < tempo <= TETO:", "    if not 0.0 <= tempo <= TETO:"))
+    add(_m("TKA25", "teclado", "um tempo apertado acima do teto é gravado", "T3-6: o tempo apertado vai de 0,001 s a 3600 s", TKA,
+           "    if not 0.0 < tempo <= TETO:", "    if not 0.0 < tempo:"))
+    add(_m("TKA26", "teclado", "um tempo apertado é gravado num comando que não o tem", "T3-6/T2-4: só 'apertar e soltar' tem tempo apertado", TKA,
+           "    if not info.tempo_editavel:", "    if False:"))
+    add(_m("TKA27", "teclado", "um número infinito ou NaN é aceito como tempo", "T3-6: só número finito", TKA,
+           "    return numero if math.isfinite(numero) else None", "    return numero"))
+    add(_m("TKA28", "teclado", "um texto que não é número estoura em vez de ser recusado", "T3-6: valor que não é número é recusado", TKA,
+           "    except (TypeError, ValueError):", "    except TypeError:"))
+    add(_m("TKA29", "teclado", "a espera gravada é arredondada (o mínimo exato cai abaixo dele)", "T3-6: a espera não é arredondada", TKA,
+           "        mapa.set_gap_before(marca.indice, numero)", "        mapa.set_gap_before(marca.indice, round(numero, _CASAS))"))
+    add(_m("TKA30", "teclado", "a recusa da espera cita o valor pedido e não o mínimo", "T3-6: a frase diz qual é a espera mínima", TKA,
+           "{formatar_segundos(minimo)}", "{formatar_segundos(numero)}"))
+    add(_m("TKA31", "teclado", "a troca de tecla, botão ou programa não confere a marca", "T3-6: antes de gravar, conferir o comando marcado", TKA,
+           L("    recusa = _conferir(mapa, marca)", "    if recusa is not None:", "        return recusa", "    comando = mapa.commands[marca.indice]",
+             '    texto = "" if valor is None else str(valor)'),
+           L("    comando = mapa.commands[marca.indice]", '    texto = "" if valor is None else str(valor)')))
+    add(_m("TKA32", "teclado", "a troca de texto não confere a marca", "T3-6: antes de gravar, conferir o comando marcado", TKA,
+           L("    recusa = _conferir(mapa, marca)", "    if recusa is not None:", "        return recusa", "    comando = mapa.commands[marca.indice]",
+             "    if comando.type != InputType.TEXT:"),
+           L("    comando = mapa.commands[marca.indice]", "    if comando.type != InputType.TEXT:")))
+    add(_m("TKA33", "teclado", "a troca do tempo apertado não confere a marca", "T3-6: antes de gravar, conferir o comando marcado", TKA,
+           L("    recusa = _conferir(mapa, marca)", "    if recusa is not None:", "        return recusa", "    info = linha_info_de(mapa, marca.indice)"),
+           "    info = linha_info_de(mapa, marca.indice)"))
+    add(_m("TKA34", "teclado", "a troca da espera não confere a marca", "T3-6: antes de gravar, conferir o comando marcado", TKA,
+           L("    recusa = _conferir(mapa, marca)", "    if recusa is not None:", "        return recusa", "    numero = _numero(valor)", "    if numero is None:",
+             "        return _recusar(_ESPERA_INVALIDA)"),
+           L("    numero = _numero(valor)", "    if numero is None:", "        return _recusar(_ESPERA_INVALIDA)")))
+    add(_m("TKA35", "teclado", "gravar o texto de um comando desativado o reativa", "F49: a gravação pelo teclado não mexe no estado ativado", TKA,
+           L("    comando.duration = calculate_text_duration(novo)", "    return _OK"),
+           L("    comando.duration = calculate_text_duration(novo)", "    comando.enabled = True", "    return _OK")))
+    add(_m("TKA36", "teclado", "mexer na espera reativa os comandos desativados", "F49: a gravação pelo teclado não mexe no estado ativado", TKA,
+           "        mapa.set_gap_before(marca.indice, numero)",
+           L("        mapa.set_gap_before(marca.indice, numero)", "        for outro in mapa.commands:", "            outro.enabled = True")))
+    # de evento do Qt para a tecla do Studio (teclado_teclas.py)
+    add(_m("TKT01", "teclado", "fora da captura o teclado numérico também tem nomes próprios", "T3-10: o teclado numérico só vale na captura", TKT,
+           "        if captura:", "        if True:"))
+    add(_m("TKT02", "teclado", "na captura o Enter do numérico não é reconhecido pelo código", "T3-10: Key_Enter é NUMENTER na captura", TKT,
+           "            if codigo == self._enter_do_numerico:", "            if False:"))
+    add(_m("TKT03", "teclado", "na captura os dígitos da fileira de cima viram dígitos do numérico", "T3-10: o numérico só vale com o modificador aceso", TKT,
+           "            elif modificadores & self._modificador_numerico:", "            elif True:"))
+    add(_m("TKT04", "teclado", "o dígito 0 pelo código virtual do Windows não é reconhecido", "T3-10: Shift ou AltGr + dígito pelo código virtual", TKT,
+           "if 0x30 <= codigo <= 0x39 else", "if 0x31 <= codigo <= 0x39 else"))
+    add(_m("TKT05", "teclado", "o dígito 9 pelo código virtual do Windows não é reconhecido", "T3-10: Shift ou AltGr + dígito pelo código virtual", TKT,
+           "if 0x30 <= codigo <= 0x39 else", "if 0x30 <= codigo <= 0x38 else"))
+    add(_m("TKT06", "teclado", "apertar Ctrl sozinho vira 'Ctrl+CTRL'", "T3-10: o modificador da própria tecla não conta", TKT,
+           L('        if nome == "CTRL":', "            ctrl = False"), L("        if False:", "            ctrl = False")))
+    add(_m("TKT07", "teclado", "apertar Shift sozinho vira 'Shift+SHIFT'", "T3-10: o modificador da própria tecla não conta", TKT,
+           '        elif nome == "SHIFT":', "        elif False:"))
+    add(_m("TKT08", "teclado", "apertar Alt sozinho vira 'Alt+ALT'", "T3-10: o modificador da própria tecla não conta", TKT,
+           '        elif nome == "ALT":', "        elif False:"))
+    add(_m("TKT09", "teclado", "o AltGr chega como Alt (o Ctrl que o Windows põe junto some, o Alt fica)", "T3-10: no Windows o AltGr chega como Ctrl + Alt", TKT,
+           "            ctrl = alt = False", "            ctrl = False"))
+    add(_m("TKT10", "teclado", "um texto de vários caracteres é aceito como a tecla digitada", "T3-10: Tecla.texto é um só caractere", TKT,
+           "        if len(texto) != 1 or not texto.isprintable():", "        if not texto.isprintable():"))
+    add(_m("TKT11", "teclado", "um caractere de controle é aceito como a tecla digitada", "T3-10: Tecla.texto é imprimível", TKT,
+           "        if len(texto) != 1 or not texto.isprintable():", "        if len(texto) != 1:"))
+    add(_m("TKT12", "teclado", "a tabela perde o F24", "T3-10: F1 a F24 valem sempre", TKT,
+           "for i in range(1, 25))", "for i in range(1, 24))"))
+    add(_m("TKT13", "teclado", "Shift+Tab (Key_Backtab) deixa de ser Tab", "T3-10: tabela da ficha, seção 5", TKT,
+           '("Key_Backtab", "TAB"), ', ""))
+    add(_m("TKT14", "teclado", "o Ç deixa de ser reconhecido", "T3-10: letras e Ç valem sempre", TKT,
+           ' + (("Key_Ccedilla", "Ç"),)', ""))
+    add(_m("TKT15", "teclado", "a lista de nomes da captura esquece o NUMENTER", "T3-10: NOMES_DA_CAPTURA tem os 103 nomes", TKT,
+           "*_NUMERICO, _ENTER_DO_NUMERICO))", "*_NUMERICO))"))
+    add(_m("TKT16", "teclado", "a vírgula do numérico deixa de ser o ponto decimal", "T3-10: a vírgula é o ponto decimal em layouts brasileiros", TKT,
+           '("Key_Comma", "NUM."),', ""))
+    add(_m("TKT17", "teclado", "a tecla do Windows (Meta) deixa de ser reconhecida", "T3-10: tabela da ficha, seção 5", TKT,
+           '("Key_Meta", "WIN"), ', ""))
+    add(_m("TKT18", "teclado", "o AltGr deixa de ser reconhecido", "T3-10: tabela da ficha, seção 5", TKT,
+           '("Key_AltGr", "ALTGR"), ', ""))
+    add(_m("TKT19", "teclado", "fora da captura o Enter do numérico deixa de ser Enter", "T3-10: fora da captura o Enter do numérico é Enter", TKT,
+           ' ("Key_Enter", "ENTER"),', ""))
 
     # ---- as regras ligadas à ativação (ativacao.py, ativacao_ui.py) e à janela (main_window.py, protegida pelo teste estático)
     add(_m("ATV63", "ativacao", "a tecla que o mapa JÁ TEM passa a ser recusada se for reservada (mapas antigos deixariam de salvar)",

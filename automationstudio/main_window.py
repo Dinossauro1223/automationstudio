@@ -10,6 +10,7 @@ from .input_system import *
 from .project import *
 from .ativacao_ui import ControladorAtivacao
 from .controle_ui import ControladorDeExecucao
+from .teclado_ui import TecladoDaJanela
 from .tutorial import *
 from .overlays import *
 from .passo_a_passo_ui import ControladorPassoAPasso
@@ -246,6 +247,7 @@ class MainWindow(QMainWindow):
         self._position_error_notice()
         self.elevacao = ControladorElevacao(self)  # F51: aviso de janela de administrador (rótulo na barra de status)
         self._build_status_bar()
+        self.teclado = TecladoDaJanela(self)  # 25.9: editar pelo teclado; depois da tabela (que filtra) e da barra de status (onde escreve)
         self._connect_bridge()
         self._connect_capture_bridge()
         self.passo = ControladorPassoAPasso(self)  # F52: executar a automação passo a passo (janelinha de controle sem foco)
@@ -343,6 +345,11 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
+    def _teclado_editando(self) -> bool:
+        """25.9: há uma edição pelo teclado em curso? O Esc é dela enquanto houver: o do aplicativo (abaixo) cede, senão cancelar a edição voltaria de página."""
+        teclado = getattr(self, 'teclado', None)
+        return teclado is not None and teclado.editando()
+
     def eventFilter(self, watched, event):  # noqa: N802
         if watched is getattr(self, 'toolbar_scroll', None) and event.type() == QEvent.Resize:
             if hasattr(self, 'toolbar_hint') and hasattr(self, 'main_toolbar'):
@@ -354,7 +361,7 @@ class MainWindow(QMainWindow):
             bar=self.toolbar_scroll.horizontalScrollBar()
             bar.setValue(bar.value()-delta)
             event.accept(); return True
-        if event.type() == QEvent.KeyPress and event.key() == Qt.Key_Escape:
+        if event.type() == QEvent.KeyPress and event.key() == Qt.Key_Escape and not self._teclado_editando():
             # ESC funciona mesmo quando o foco está em um widget filho da
             # janela principal (incluindo a barra lateral).
             if getattr(self, '_execution_sidebar', None) is not None and self._execution_sidebar.isVisible():

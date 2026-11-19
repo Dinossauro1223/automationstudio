@@ -597,7 +597,7 @@ class HotkeyConflictError(RuntimeError):
     """
 
 class GlobalHotkeyManager:
-    def __init__(self, monitor: Optional[GlobalInputMonitor] = None) -> None:
+    def __init__(self, monitor: Optional[GlobalInputMonitor] = None, relogio: Callable[[], float] = time.monotonic) -> None:
         self.monitor = monitor if monitor is not None else GlobalInputMonitor()
         # Só é dono do ciclo de vida (start/stop) do monitor quando foi ELE
         # quem o criou -- se alguém injetar um monitor compartilhado (ex.:
@@ -609,6 +609,13 @@ class GlobalHotkeyManager:
         self._bindings: dict[frozenset[str], tuple[str, Callable[[], None]]] = {}
         self._pressed: set[str] = set()
         self._fired: set[frozenset[str]] = set()
+        # Suspensão (25.9, T3a): enquanto a pessoa grava a tecla de um comando, os atalhos de AUTOMAÇÃO (registrados com
+        # `suspensivel=True`) não disparam; os de controle e todos os outros seguem valendo. `_retoma_em` é a "graça":
+        # depois de `retomar(graca)` a suspensão ainda vale até esse instante do `relogio`.
+        self._suspensiveis: set[frozenset[str]] = set()
+        self._suspenso = False
+        self._retoma_em = 0.0
+        self._relogio = relogio
         self._key_cb = lambda name, pressed: self._on_key(name, pressed)
         self._mouse_cb = lambda name, pressed: self._on_mouse_button(name, pressed)
 
@@ -621,13 +628,15 @@ class GlobalHotkeyManager:
 
     # ---- Registro ---------------------------------------------------
 
-    def register(self, hotkey: str, callback: Callable[[], None]) -> None:
+    def register(self, hotkey: str, callback: Callable[[], None], suspensivel: bool = False) -> None:
         """Registra `callback` para disparar quando `hotkey` for
         pressionada. Levanta `HotkeyConflictError` se a MESMA combinação
         de teclas já estiver associada a um callback DIFERENTE (ou seja,
         a uma ação diferente) -- registrar de novo o mesmo callback para
         o mesmo atalho é idempotente e não conflita (útil ao recarregar
-        os atalhos a partir dos mapas + configurações)."""
+        os atalhos a partir dos mapas + configurações).
+
+        `suspensivel=True` marca um atalho de automação: `suspender()` o silencia (ver `suspenso`)."""
         combo = parse_combo(hotkey)
         existing = self._bindings.get(combo)
         if existing is not None and existing[1] is not callback:
@@ -636,14 +645,41 @@ class GlobalHotkeyManager:
                 f"'{existing[0]}', já em uso."
             )
         self._bindings[combo] = (hotkey, callback)
+        if suspensivel:
+            self._suspensiveis.add(combo)
+        else:
+            self._suspensiveis.discard(combo)
 
     def unregister(self, hotkey: str) -> None:
-        self._bindings.pop(parse_combo(hotkey), None)
+        combo = parse_combo(hotkey)
+        self._bindings.pop(combo, None)
+        self._suspensiveis.discard(combo)
+
+    # ---- Suspensão (a captura de tecla do editor) -------------------
+
+    def suspender(self) -> None:
+        """Silencia os atalhos marcados como suspensíveis até `retomar()`. Os outros seguem valendo. A tecla que se completa
+        enquanto suspenso conta como disparada: não dispara na retomada com ela ainda apertada, só depois de solta e apertada de novo."""
+        self._suspenso = True
+
+    def retomar(self, graca: float = 0.0) -> None:
+        """Devolve os atalhos. Com `graca` (segundos), eles só voltam depois desse intervalo: cobre o caso de o monitor ver a tecla que
+        confirmou a captura depois de a janela já tê-la tratado."""
+        self._suspenso = False
+        self._retoma_em = self._relogio() + max(0.0, float(graca))
+
+    @property
+    def suspenso(self) -> bool:
+        return self._suspenso or self._relogio() < self._retoma_em
+
+    def _retido(self, combo: frozenset[str]) -> bool:
+        return combo in self._suspensiveis and self.suspenso
 
     def clear(self) -> None:
         """Remove todos os atalhos registrados (ex.: antes de recarregar
         a partir dos mapas + configurações, na MainWindow)."""
         self._bindings.clear()
+        self._suspensiveis.clear()
         self._pressed.clear()
         self._fired.clear()
 
@@ -677,6 +713,8 @@ class GlobalHotkeyManager:
             for combo, (_hotkey, callback) in self._bindings.items():
                 if combo <= self._pressed and combo not in self._fired:
                     self._fired.add(combo)
+                    if self._retido(combo):
+                        continue
                     callback()
         else:
             self._pressed.discard(name)
@@ -698,6 +736,8 @@ class GlobalHotkeyManager:
             for combo, (_hotkey, callback) in self._bindings.items():
                 if combo <= self._pressed and combo not in self._fired:
                     self._fired.add(combo)
+                    if self._retido(combo):
+                        continue
                     callback()
         else:
             self._pressed.discard(token)
