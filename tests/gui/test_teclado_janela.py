@@ -410,6 +410,7 @@ def test_texto_vazio_nao_grava_e_a_edicao_continua_com_a_dica(sem_erro_do_teclad
 
 def test_enter_duplo_no_texto_explica_por_que_nao_ha_tempo_e_o_enter_lento_fecha_sem_gravar(sem_erro_do_teclado, abrir_janela, legacy_maps, tmp_path, monkeypatch):
     janela, relogio, _bips = _preparar(abrir_janela, legacy_maps, tmp_path, monkeypatch, "Exemplo")
+    base_da_barra = _mensagem(janela)   # a janela mostra, ao abrir, "Backend de execução: …" por 5 s (relógio do Qt, que o FakeClock não move)
     motivo = linha_info_de(janela._current_map, 1).tempo_motivo
     assert motivo
     _focar(janela, 1)
@@ -424,7 +425,7 @@ def test_enter_duplo_no_texto_explica_por_que_nao_ha_tempo_e_o_enter_lento_fecha
     _apertar(janela, Qt.Key_Return, alvo=editor)   # devagar, com o texto igual: só fecha
     assert not janela.teclado.editando(), _estado(janela)
     assert janela.act_undo.text() == rotulo_antes, "texto igual: nenhum passo novo no histórico"
-    assert _mensagem(janela) == ""
+    assert _mensagem(janela) in ("", base_da_barra), "texto igual: o teclado não anuncia gravação nenhuma. " + _estado(janela)
 
 
 # ================================================================================================ programa
