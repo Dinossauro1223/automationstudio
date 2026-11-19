@@ -49,6 +49,24 @@ def test_suspenso_o_atalho_sem_a_marca_continua_disparando():
     assert disparos == ["F12"]
 
 
+def test_o_atalho_calado_nao_impede_os_outros_da_mesma_apertada():
+    """O gerenciador dispara por subconjunto (A5 da especificação): uma mesma apertada pode completar dois atalhos. O de automação, calado, é
+    pulado; o outro (aqui o registrado depois, sem a marca) tem de disparar: pular não é parar a procura."""
+    g, mon, disparos = _novo(suspensiveis=["X"], fixos=["SHIFT+X"])
+    g.suspender()
+    mon.press("SHIFT")
+    mon.press("X")
+    assert disparos == ["SHIFT+X"]
+
+
+def test_o_botao_calado_nao_impede_os_outros_do_mesmo_botao():
+    g, mon, disparos = _novo(suspensiveis=["MOUSE_X1"], fixos=["SHIFT+MOUSE_X1"])
+    g.suspender()
+    mon.press("SHIFT")
+    mon.click("x1", True)
+    assert disparos == ["SHIFT+MOUSE_X1"]
+
+
 def test_a_combinacao_com_modificadores_tambem_fica_suspensa():
     g, mon, disparos = _novo(suspensiveis=["CTRL+SHIFT+ALT+1"])
     g.suspender()
@@ -124,10 +142,20 @@ def test_a_graca_mantem_a_suspensao_por_um_instante_depois_de_retomar():
     mon.press("F6")
     assert disparos == [] and g.suspenso
     mon.release("F6")
-    relogio.advance(0.2)  # 0,3 s depois da retomada
+    relogio.advance(0.14)  # 0,24 s depois da retomada: a graça é de 0,25 s, então ainda vale
+    assert g.suspenso
+    relogio.advance(0.02)  # 0,26 s: acabou
     assert not g.suspenso
     mon.press("F6")
     assert disparos == ["F6"]
+
+
+def test_a_graca_termina_no_instante_combinado_e_nao_um_instante_depois():
+    relogio = FakeClock(100.0)
+    g, _mon, _disparos = _novo(suspensiveis=["F6"], relogio=relogio.monotonic)
+    g.suspender(); g.retomar(graca=0.25)
+    relogio.advance(0.25)
+    assert not g.suspenso
 
 
 def test_a_graca_nao_atrapalha_o_que_nao_e_suspensivel():

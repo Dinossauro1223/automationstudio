@@ -495,6 +495,30 @@ def test_espera_que_nao_e_numero_finito_e_recusada(valor):
     _recusa(mapa, antes, aplicar_espera(mapa, marcar(mapa, 1), valor))
 
 
+@pytest.mark.parametrize("valor", [float("nan"), float("inf"), float("-inf"), "nan", "inf", "-inf", "Infinity", None, "abc", ""],
+                         ids=["nan", "infinito", "menos-infinito", "texto-nan", "texto-inf", "texto-menos-inf", "texto-infinity", "nada", "texto", "vazio"])
+def test_a_recusa_da_espera_que_nao_e_numero_diz_que_precisa_ser_um_numero(valor):
+    """O texto "nan" e "inf" PASSAM pelo `float()` do Python, então a conferência do número finito é desta função. O modelo (`set_gap_before`)
+    também recusa o que não é finito, mas com a frase do mínimo ("um comando começaria antes do instante 0"), que seria uma mentira aqui:
+    a espera de um valor que nem é número não tem um "mínimo" que ela tenha ficado abaixo."""
+    mapa = _tres()
+    antes = _foto(mapa)
+    resultado = aplicar_espera(mapa, marcar(mapa, 1), valor)
+    _recusa(mapa, antes, resultado)
+    assert resultado.mensagem == "A espera precisa ser um número. Nada foi gravado."
+    assert "instante 0" not in resultado.mensagem and "mínima" not in resultado.mensagem
+
+
+@pytest.mark.parametrize("valor", [float("nan"), float("inf"), float("-inf"), "nan", "inf", None, "abc", ""],
+                         ids=["nan", "infinito", "menos-infinito", "texto-nan", "texto-inf", "nada", "texto", "vazio"])
+def test_a_recusa_do_tempo_que_nao_e_numero_diz_a_faixa_valida(valor):
+    mapa = _misto()
+    antes = _foto(mapa)
+    resultado = aplicar_tempo(mapa, marcar(mapa, TECLA), valor)
+    _recusa(mapa, antes, resultado)
+    assert resultado.mensagem == f"O tempo apertado vai de 0,001 s a {TETO:g} s. Nada foi gravado."
+
+
 # ------------------------------------------------------------------------------------------------ os mapas reais
 @pytest.mark.parametrize("nome", MAPAS, ids=IDS_MAPAS)
 def test_nos_mapas_reais_toda_gravacao_natural_funciona_e_o_mapa_continua_valido(legacy_maps, nome):
@@ -539,3 +563,34 @@ def test_flins_a_espera_de_um_comando_do_meio_empurra_exatamente_os_seguintes(le
     depois = [c.start for c in mapa.commands]
     assert depois[:400] == antes[:400]
     assert depois[400:] == pytest.approx([x + 0.25 for x in antes[400:]])
+
+
+# ------------------------------------------------------------------------------------------------ comandos desativados (F49)
+@pytest.mark.parametrize("quem", QUATRO)
+def test_um_comando_desativado_se_edita_como_qualquer_outro_e_continua_desativado(quem):
+    """O F49 deixa o comando desativado na lista, no mesmo lugar e com o mesmo horário. A gravação pelo teclado não olha `enabled`: grava o que
+    foi pedido e não reativa o comando (nem mexe no estado de nenhum outro)."""
+    indice, chamar = CHAMADAS[quem]
+    mapa = _misto()
+    mapa.set_commands_enabled({mapa.commands[indice].id}, False)
+    antes = _foto(mapa)
+    assert antes[indice]["enabled"] is False
+    _sucesso(chamar(mapa, marcar(mapa, indice)))
+    depois = _foto(mapa)
+    assert [c["enabled"] for c in depois] == [c["enabled"] for c in antes]
+    assert depois != antes, "a gravação aconteceu (senão o teste de cima não provaria nada)"
+
+
+def test_a_espera_conta_a_partir_do_anterior_da_lista_mesmo_desativado_e_empurra_tambem_o_desativado_que_vem_depois():
+    """O T2 deixou esta decisão para depois do F49 entrar na `main`: os horários são absolutos e o desativado fica no lugar, então a espera de
+    um comando é a lacuna até o fim programado do anterior da LISTA, ativado ou não. Mexer nela empurra todos os seguintes, desativados também,
+    e nenhum muda de estado."""
+    mapa = _tres()                                   # A 0–1,0 · B 1,5–2,0 · C 2,2–2,4
+    mapa.set_commands_enabled({"A", "C"}, False)     # A (o anterior de B) e C (o seguinte) desativados
+    assert [c.enabled for c in mapa.commands] == [False, True, False]
+    assert mapa.gap_before(1) == pytest.approx(0.5), "B espera a partir do fim de A, que está desativado"
+    assert mapa.gap_before(2) == pytest.approx(0.2)
+    _sucesso(aplicar_espera(mapa, marcar(mapa, 1), 0.75))
+    assert [c.start for c in mapa.commands] == pytest.approx([0.0, 1.75, 2.45])
+    assert [c.enabled for c in mapa.commands] == [False, True, False]
+    assert mapa.validate() == []

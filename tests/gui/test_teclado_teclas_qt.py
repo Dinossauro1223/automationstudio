@@ -96,3 +96,11 @@ def test_tecla_que_o_studio_nao_conhece_tem_nome_vazio(gui, gui_real):
     tradutor = _tradutor()
     for atributo in ("Key_Semicolon", "Key_Equal", "Key_Exclam", "Key_VolumeUp", "Key_Dead_Acute"):
         assert tradutor.traduzir(_evento(getattr(Qt, atributo))).nome == "", atributo
+
+
+def test_o_qttest_existe_no_pyside6_de_verdade(gui, gui_real):
+    """Os testes de janela do teclado (tests/gui/test_teclado_janela.py e test_teclado_seletor.py) pulam sem o QtTest (`importorskip`). Com o Qt REAL
+    ele tem de existir: se faltasse, aqueles arquivos pulariam em silêncio e o teclado ficaria sem prova na janela. Este teste falha alto."""
+    from PySide6.QtTest import QTest
+    for nome in ("keyClick", "keyClicks", "keyPress", "keyRelease"):
+        assert callable(getattr(QTest, nome, None)), f"QtTest.{nome} não existe"

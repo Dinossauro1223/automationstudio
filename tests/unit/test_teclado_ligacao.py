@@ -1099,6 +1099,40 @@ def test_o_erro_diz_o_que_aconteceu_no_log_com_o_tipo_da_excecao(runtime_log):
     assert any(linha.startswith("TECLADO_EDICAO ") and "KeyError" in linha and "sem a chave" in linha for linha in runtime_log)
 
 
+def test_se_o_relogio_nao_liga_na_passagem_da_captura_ao_tempo_cada_interruptor_e_acertado_uma_vez_so(runtime_log):
+    """Da captura ao tempo os DOIS interruptores mudam no mesmo passo: os atalhos voltam (sai da captura) e o relógio liga (entra no tempo). Se
+    o relógio falha, a suspensão já foi desfeita: a limpeza do erro não pode pedir `suspender_atalhos(False)` de novo, e tem de desligar o relógio,
+    que pode ter ficado meio ligado. Quem guarda o "último estado acertado" ANTES de chamar a porta é quem garante as duas coisas."""
+    ligacao, porta, relogio = _nova()
+    _apertar(ligacao, ENTER)
+    relogio.advance(0.2)
+    porta.falhar_em["ligar_relogio"] = RuntimeError("o QTimer não ligou")
+    assert _apertar(ligacao, ENTER) is True
+    assert ligacao.editando() is False
+    assert porta.de("suspender_atalhos") == [(True,), (False,)], "cada pedido de suspensão feito uma vez só, sem repetir na limpeza"
+    assert porta.de("ligar_relogio") == [(True,), (False,)], "o relógio que falhou ao ligar é desligado na limpeza do erro"
+    assert porta.atalhos_suspensos is False
+    assert porta.ultima_dica(temporaria=True) == MENSAGEM_DO_ERRO
+    assert any("o QTimer não ligou" in linha for linha in runtime_log)
+    assert any("falha ao acertar o relógio" in linha for linha in runtime_log), "o relógio que também falhou ao desligar vai para o log, sem escapar"
+
+
+def test_o_aviso_de_erro_nao_herda_a_gravacao_de_uma_edicao_anterior(runtime_log):
+    """"A mudança foi gravada" só vale para a edição em curso: depois de uma edição que gravou, o erro de uma edição seguinte, sem gravação
+    nenhuma, tem de dizer "nada foi gravado" (T3-13). Dizer o contrário faria o dono procurar uma mudança que não existe."""
+    ligacao, porta, _ = _nova()
+    _digitar(ligacao, ENTER, Tecla("Q"), Tecla("Q"))
+    assert porta.mapa.commands[TECLA].target == "Q", "a primeira edição gravou"
+    assert porta.ultima_dica(temporaria=True) == "Tecla trocada para Q. Ctrl+Z desfaz."
+    porta.esquecer()
+    antes = [c.to_dict() for c in porta.mapa.commands]
+    porta.falhar_em["marcar"] = RuntimeError("segunda edição")
+    assert _apertar(ligacao, ENTER) is True
+    assert [c.to_dict() for c in porta.mapa.commands] == antes, "a segunda edição não gravou nada"
+    assert porta.ultima_dica(temporaria=True) == MENSAGEM_DO_ERRO
+    assert tl.MENSAGEM_DO_ERRO_GRAVADO not in [c[1] for c in porta.chamadas if c[0] == "dica"]
+
+
 # ================================================================================================ cada efeito do controlador tem tratamento
 EFEITOS = ["Marcar", "Desmarcar", "Cancelar", "FecharEditor", "IniciarCaptura", "ProporTecla", "Bip", "AbrirTexto", "AbrirAplicativo", "AplicarAlvo",
            "AplicarTexto", "AplicarTempo", "AplicarEspera", "Dica", "MostrarValor", "AbrirBarraLateral", "EditarCelula"]
@@ -1199,6 +1233,21 @@ def test_efeito_que_a_ligacao_nao_conhece_e_um_erro_tratado_como_qualquer_outro(
     assert ligacao.tecla_pressionada(ENTER) is True
     assert porta.ultima_dica() == MENSAGEM_DO_ERRO
     assert any("EfeitoNovo" in linha for linha in runtime_log)
+
+
+@pytest.mark.parametrize("estado", [Estado.NAVEGANDO, Estado.TEXTO, Estado.TEMPO, Estado.ESPERA], ids=["navegando", "texto", "tempo", "espera"])
+def test_gravar_alvo_num_estado_que_nao_grava_alvo_e_um_erro_com_a_frase_certa_no_log(estado, runtime_log):
+    """O estado de onde a edição veio é quem dá o rótulo do passo do histórico (T3-14): só a captura, o botão e o programa gravam um alvo. Um
+    `AplicarAlvo` vindo de outro estado não grava com um rótulo qualquer (desfazer teria o nome errado): é um erro, e o log tem de dizer
+    exatamente isso, não um `KeyError` de dicionário que não diria nada a quem lê o log."""
+    ligacao, porta = _com_mentira(te.AplicarAlvo(TECLA, "G"), estado)
+    assert ligacao.tecla_pressionada(ENTER) is True
+    assert "aplicar_alvo" not in porta.nomes(), "nada é gravado com um rótulo que não existe"
+    assert porta.mapa.commands[TECLA].target == "E"
+    assert porta.ultima_dica(temporaria=True) == MENSAGEM_DO_ERRO
+    linhas = [linha for linha in runtime_log if linha.startswith("TECLADO_EDICAO erro=")]
+    assert len(linhas) == 1, linhas
+    assert "RuntimeError" in linhas[0] and f"AplicarAlvo vindo do estado {estado.value}" in linhas[0], linhas[0]
 
 
 def test_a_ordem_dos_efeitos_e_a_que_o_controlador_mandou():
